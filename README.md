@@ -1,73 +1,114 @@
-# Welcome to your Lovable project
+HealthAI Insight
 
-## Project info
+🔗 Live Demo: https://healthai-insight.vercel.app
 
-**URL**: https://lovable.dev/projects/85f1d844-efb3-4343-836e-0d2bcf98b9e6
+HealthAI Insight is a production-ready frontend application that simulates an intelligent health assistance system using a strictly-typed, modular React architecture.
 
-## How can I edit this code?
+The project demonstrates client-side intelligence, structured service abstraction, real-time analytics computation, and performance-optimized UI design.
 
-There are several ways of editing your application.
+🧠 System Overview
 
-**Use Lovable**
+HealthAI Insight is built around four core modules:
 
-Simply visit the [(https://healthai-insight.vercel.app/)] and start prompting.
+🩺 Symptom Intelligence Engine
 
-Changes made via Lovable will be committed automatically to this repo.
+Implements a weighted scoring algorithm to evaluate user-provided symptoms and generate:
 
-**Use your preferred IDE**
+Top 3 probable conditions
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Confidence percentages
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Risk categorization (Low / Medium / High)
 
-Follow these steps:
+Persistent consultation history
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+The scoring model prioritizes symptom relevance and condition weight mapping to simulate real-world diagnostic ranking.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+📊 Health Analytics Dashboard
 
-# Step 3: Install the necessary dependencies.
-npm i
+Transforms consultation history into actionable insights:
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+Total consultations tracking
 
-**Edit a file directly in GitHub**
+Risk distribution visualization
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Most common condition analysis
 
-**Use GitHub Codespaces**
+Monthly trend computation
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+All analytics are computed dynamically from persisted client-side data.
 
-## What technologies are used for this project?
+💬 Smart Health Chat
 
-This project is built with:
+An interactive assistant interface with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Persistent chat history
 
-## How can I deploy this project?
+Keyword-based urgency detection
 
-Simply open [Lovable](https://lovable.dev/projects/85f1d844-efb3-4343-836e-0d2bcf98b9e6) and click on Share -> Publish.
+High-risk alert banners
 
-## Can I connect a custom domain to my Lovable project?
+Structured response formatting
 
-Yes, you can!
+Designed to simulate triage-style guidance logic.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+💊 Structured Treatment Guide
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Provides organized treatment suggestions and guidance while maintaining strict separation between UI and business logic.
+
+🏗 Engineering Approach
+
+This project was intentionally structured to reflect scalable frontend system design:
+
+Strict TypeScript configuration
+
+Feature-based modular architecture
+
+Dedicated service layer for business logic
+
+UI and logic separation
+
+Local persistence abstraction
+
+Route-based code splitting
+
+Memoized components for render optimization
+
+Clean reusable component system
+
+The goal was not only functionality, but architectural clarity and maintainability.
+
+⚙️ Tech Stack
+
+React
+
+Vite
+
+TypeScript (Strict Mode)
+
+Tailwind CSS
+
+shadcn/ui
+
+Recharts
+
+Vercel (Deployment)
+
+🎯 What This Project Demonstrates
+
+Frontend architectural thinking
+
+Algorithm implementation in client-side systems
+
+Data modeling & persistence strategies
+
+Real-time derived analytics
+
+Performance optimization techniques
+
+Production deployment workflow
+
+👤 Author
+
+Manoj Amarapu
+B.Tech Computer Science & Engineering
