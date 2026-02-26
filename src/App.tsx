@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
 import Predict from "./pages/Predict";
@@ -23,16 +24,19 @@ const App = () => (
         <SidebarProvider>
           <div className="min-h-screen flex w-full bg-background">
             <AppSidebar />
-            
+
             <div className="flex flex-col flex-1">
               {/* Header */}
               <header className="h-16 flex items-center justify-between px-6 border-b bg-card shadow-soft">
                 <SidebarTrigger className="p-2 hover:bg-muted rounded-lg transition-smooth" />
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center shadow-medical">
-                    <span className="text-primary-foreground font-bold text-sm">H</span>
+                  <div className="flex items-center gap-2 mr-4">
+                    <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center shadow-medical">
+                      <span className="text-primary-foreground font-bold text-sm">H</span>
+                    </div>
+                    <span className="font-semibold text-foreground">HealthAI</span>
                   </div>
-                  <span className="font-semibold text-foreground">HealthAI</span>
+                  <ThemeToggle />
                 </div>
               </header>
 

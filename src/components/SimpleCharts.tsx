@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 
 interface BarChartData {
@@ -21,64 +22,64 @@ interface SimpleBarChartProps {
   height?: number;
 }
 
-export function SimpleBarChart({ data, height = 300 }: SimpleBarChartProps) {
+export const SimpleBarChart = memo(function SimpleBarChart({ data, height = 300 }: SimpleBarChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis 
-          dataKey="name" 
-          stroke="hsl(var(--muted-foreground))" 
+        <XAxis
+          dataKey="name"
+          stroke="hsl(var(--muted-foreground))"
           fontSize={12}
           angle={-45}
           textAnchor="end"
           height={80}
         />
         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-        <Tooltip 
+        <Tooltip
           contentStyle={{
             backgroundColor: 'hsl(var(--card))',
             border: '1px solid hsl(var(--border))',
             borderRadius: '8px'
           }}
         />
-        <Bar 
-          dataKey="cases" 
+        <Bar
+          dataKey="cases"
           fill="hsl(var(--primary))"
           radius={[4, 4, 0, 0]}
         />
       </BarChart>
     </ResponsiveContainer>
   );
-}
+});
 
 interface SimpleLineChartProps {
   data: LineChartData[];
   height?: number;
 }
 
-export function SimpleLineChart({ data, height = 300 }: SimpleLineChartProps) {
+export const SimpleLineChart = memo(function SimpleLineChart({ data, height = 300 }: SimpleLineChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis 
-          dataKey="month" 
-          stroke="hsl(var(--muted-foreground))" 
+        <XAxis
+          dataKey="month"
+          stroke="hsl(var(--muted-foreground))"
           fontSize={12}
         />
         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-        <Tooltip 
+        <Tooltip
           contentStyle={{
             backgroundColor: 'hsl(var(--card))',
             border: '1px solid hsl(var(--border))',
             borderRadius: '8px'
           }}
         />
-        <Line 
-          type="monotone" 
-          dataKey="consultations" 
-          stroke="hsl(var(--primary))" 
+        <Line
+          type="monotone"
+          dataKey="consultations"
+          stroke="hsl(var(--primary))"
           strokeWidth={3}
           dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, fill: 'hsl(var(--primary-glow))' }}
@@ -86,7 +87,7 @@ export function SimpleLineChart({ data, height = 300 }: SimpleLineChartProps) {
       </LineChart>
     </ResponsiveContainer>
   );
-}
+});
 
 interface SimplePieChartProps {
   data: PieChartData[];
@@ -95,7 +96,7 @@ interface SimplePieChartProps {
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
-export function SimplePieChart({ data, height = 300 }: SimplePieChartProps) {
+export const SimplePieChart = memo(function SimplePieChart({ data, height = 300 }: SimplePieChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
@@ -113,7 +114,7 @@ export function SimplePieChart({ data, height = 300 }: SimplePieChartProps) {
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
-        <Tooltip 
+        <Tooltip
           contentStyle={{
             backgroundColor: 'hsl(var(--card))',
             border: '1px solid hsl(var(--border))',
@@ -123,4 +124,4 @@ export function SimplePieChart({ data, height = 300 }: SimplePieChartProps) {
       </PieChart>
     </ResponsiveContainer>
   );
-}
+});

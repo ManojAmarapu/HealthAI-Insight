@@ -1,41 +1,42 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { TrendingUp, Activity, Heart, Brain, BarChart3, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SimpleBarChart, SimpleLineChart, SimplePieChart } from "./SimpleCharts";
+import { useHealthInsights } from "@/hooks/useHealthInsights";
 
 export function HealthInsights() {
   const [userInput, setUserInput] = useState<string>("");
-  const [customInsights, setCustomInsights] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { data: customInsights, loading: isLoading, generateInsights } = useHealthInsights();
   // Sample data for charts
-  const commonConditionsData = [
+  const commonConditionsData = useMemo(() => [
     { name: 'Common Cold', cases: 45, color: '#3B82F6' },
     { name: 'Headache', cases: 32, color: '#10B981' },
     { name: 'Fever', cases: 28, color: '#F59E0B' },
     { name: 'Stomach Issues', cases: 18, color: '#EF4444' },
     { name: 'Minor Injuries', cases: 12, color: '#8B5CF6' }
-  ];
+  ], []);
 
-  const monthlyTrendsData = [
+  const monthlyTrendsData = useMemo(() => [
     { month: 'Jan', consultations: 120 },
     { month: 'Feb', consultations: 98 },
     { month: 'Mar', consultations: 156 },
     { month: 'Apr', consultations: 134 },
     { month: 'May', consultations: 145 },
     { month: 'Jun', consultations: 167 }
-  ];
+  ], []);
 
-  const ageGroupData = [
+  const ageGroupData = useMemo(() => [
     { group: '0-18', percentage: 25 },
     { group: '19-35', percentage: 35 },
     { group: '36-50', percentage: 25 },
     { group: '51+', percentage: 15 }
-  ];
+  ], []);
 
-  const healthMetrics = [
+  const healthMetrics = useMemo(() => [
     {
       title: "Total Consultations",
       value: "1,248",
@@ -68,121 +69,7 @@ export function HealthInsights() {
       icon: TrendingUp,
       color: "text-accent"
     }
-  ];
-
-  const generateInsights = () => {
-    if (!userInput.trim()) return;
-    
-    setIsLoading(true);
-    
-    // Simulate AI processing
-    setTimeout(() => {
-      const input = userInput.toLowerCase();
-      let insights = {
-        userQuery: userInput,
-        recommendations: [],
-        riskFactors: [],
-        preventiveMeasures: [],
-        lifestyle: []
-      };
-      
-      if (input.includes("heart") || input.includes("cardiac") || input.includes("chest")) {
-        insights = {
-          userQuery: userInput,
-          recommendations: [
-            "Monitor blood pressure regularly",
-            "Maintain a heart-healthy diet low in sodium",
-            "Exercise for 30 minutes daily",
-            "Limit alcohol consumption",
-            "Quit smoking if applicable"
-          ],
-          riskFactors: [
-            "High cholesterol",
-            "High blood pressure", 
-            "Sedentary lifestyle",
-            "Smoking",
-            "Family history"
-          ],
-          preventiveMeasures: [
-            "Regular cardiovascular checkups",
-            "Stress management techniques",
-            "Mediterranean diet",
-            "Adequate sleep (7-9 hours)"
-          ],
-          lifestyle: [
-            "Walk 10,000 steps daily",
-            "Practice deep breathing",
-            "Stay hydrated",
-            "Limit processed foods"
-          ]
-        };
-      } else if (input.includes("diabetes") || input.includes("blood sugar") || input.includes("glucose")) {
-        insights = {
-          userQuery: userInput,
-          recommendations: [
-            "Monitor blood glucose levels regularly",
-            "Follow a balanced, low-carb diet",
-            "Exercise regularly to improve insulin sensitivity",
-            "Take medications as prescribed",
-            "Maintain a healthy weight"
-          ],
-          riskFactors: [
-            "Obesity",
-            "Family history of diabetes",
-            "Sedentary lifestyle",
-            "High blood pressure",
-            "Age over 45"
-          ],
-          preventiveMeasures: [
-            "Regular HbA1c testing",
-            "Annual eye exams",
-            "Foot care routine",
-            "Blood pressure monitoring"
-          ],
-          lifestyle: [
-            "Meal planning and portion control",
-            "Regular sleep schedule",
-            "Stress reduction activities",
-            "Stay hydrated with water"
-          ]
-        };
-      } else {
-        // General health insights
-        insights = {
-          userQuery: userInput,
-          recommendations: [
-            "Maintain a balanced diet with fruits and vegetables",
-            "Exercise regularly for overall fitness",
-            "Get adequate sleep (7-9 hours nightly)",
-            "Stay hydrated throughout the day",
-            "Schedule regular health checkups"
-          ],
-          riskFactors: [
-            "Sedentary lifestyle",
-            "Poor diet habits",
-            "Chronic stress",
-            "Lack of sleep",
-            "Smoking or excessive alcohol"
-          ],
-          preventiveMeasures: [
-            "Annual health screenings",
-            "Vaccination updates",
-            "Mental health check-ins",
-            "Preventive dental care"
-          ],
-          lifestyle: [
-            "Practice mindfulness or meditation",
-            "Social connections and support",
-            "Limit screen time before bed",
-            "Spend time outdoors daily"
-          ]
-        };
-      }
-      
-      setCustomInsights(insights);
-      setIsLoading(false);
-    }, 2000);
-  };
+  ], []);
 
   return (
     <div className="space-y-6">
@@ -208,8 +95,8 @@ export function HealthInsights() {
                 className="min-h-[80px] border-border focus:ring-primary resize-none"
               />
             </div>
-            <Button 
-              onClick={generateInsights}
+            <Button
+              onClick={() => generateInsights(userInput)}
               disabled={!userInput.trim() || isLoading}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
@@ -248,14 +135,22 @@ export function HealthInsights() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
-                  {customInsights.recommendations.map((rec: string, index: number) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <div className="w-2 h-2 bg-success rounded-full mt-2 flex-shrink-0" />
-                      <span className="text-foreground">{rec}</span>
-                    </li>
-                  ))}
-                </ul>
+                {isLoading ? (
+                  <div className="space-y-2 py-2">
+                    <Skeleton className="h-4 w-[90%]" />
+                    <Skeleton className="h-4 w-[75%]" />
+                    <Skeleton className="h-4 w-[85%]" />
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {customInsights.recommendations.map((rec: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2 text-sm">
+                        <div className="w-2 h-2 bg-success rounded-full mt-2 flex-shrink-0" />
+                        <span className="text-foreground">{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
 
@@ -268,14 +163,22 @@ export function HealthInsights() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
-                  {customInsights.riskFactors.map((risk: string, index: number) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <div className="w-2 h-2 bg-warning rounded-full mt-2 flex-shrink-0" />
-                      <span className="text-foreground">{risk}</span>
-                    </li>
-                  ))}
-                </ul>
+                {isLoading ? (
+                  <div className="space-y-2 py-2">
+                    <Skeleton className="h-4 w-[80%]" />
+                    <Skeleton className="h-4 w-[60%]" />
+                    <Skeleton className="h-4 w-[70%]" />
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {customInsights.riskFactors.map((risk: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2 text-sm">
+                        <div className="w-2 h-2 bg-warning rounded-full mt-2 flex-shrink-0" />
+                        <span className="text-foreground">{risk}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
 
@@ -288,14 +191,22 @@ export function HealthInsights() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
-                  {customInsights.preventiveMeasures.map((measure: string, index: number) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                      <span className="text-foreground">{measure}</span>
-                    </li>
-                  ))}
-                </ul>
+                {isLoading ? (
+                  <div className="space-y-2 py-2">
+                    <Skeleton className="h-4 w-[85%]" />
+                    <Skeleton className="h-4 w-[75%]" />
+                    <Skeleton className="h-4 w-[90%]" />
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {customInsights.preventiveMeasures.map((measure: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2 text-sm">
+                        <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                        <span className="text-foreground">{measure}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
 
@@ -308,14 +219,22 @@ export function HealthInsights() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
-                  {customInsights.lifestyle.map((lifestyle: string, index: number) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <div className="w-2 h-2 bg-accent rounded-full mt-2 flex-shrink-0" />
-                      <span className="text-foreground">{lifestyle}</span>
-                    </li>
-                  ))}
-                </ul>
+                {isLoading ? (
+                  <div className="space-y-2 py-2">
+                    <Skeleton className="h-4 w-[80%]" />
+                    <Skeleton className="h-4 w-[85%]" />
+                    <Skeleton className="h-4 w-[65%]" />
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {customInsights.lifestyle.map((lifestyle: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2 text-sm">
+                        <div className="w-2 h-2 bg-accent rounded-full mt-2 flex-shrink-0" />
+                        <span className="text-foreground">{lifestyle}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -332,13 +251,12 @@ export function HealthInsights() {
                   <p className="text-sm font-medium text-muted-foreground">{metric.title}</p>
                   <p className="text-2xl font-bold text-foreground mt-1">{metric.value}</p>
                   <div className="flex items-center mt-2">
-                    <Badge 
-                      variant={metric.trend === 'up' ? 'default' : 'secondary'}
-                      className={`text-xs ${
-                        metric.trend === 'up' 
-                          ? 'bg-success/10 text-success border-success/20' 
-                          : 'bg-info/10 text-info border-info/20'
-                      }`}
+                    <Badge
+                      // variant={metric.trend === 'up' ? 'default' : 'secondary'}
+                      className={`text-xs ${metric.trend === 'up'
+                        ? 'bg-success/10 text-success border-success/20'
+                        : 'bg-info/10 text-info border-info/20'
+                        }`}
                     >
                       {metric.change}
                     </Badge>
@@ -362,7 +280,7 @@ export function HealthInsights() {
             <CardDescription>Distribution of health consultations by condition type</CardDescription>
           </CardHeader>
           <CardContent>
-            <SimpleBarChart data={commonConditionsData} />
+            {isLoading ? <Skeleton className="w-full h-[300px]" /> : <SimpleBarChart data={commonConditionsData} />}
           </CardContent>
         </Card>
 
@@ -373,7 +291,7 @@ export function HealthInsights() {
             <CardDescription>Breakdown of users by age groups</CardDescription>
           </CardHeader>
           <CardContent>
-            <SimplePieChart data={ageGroupData} />
+            {isLoading ? <Skeleton className="w-full h-[300px]" /> : <SimplePieChart data={ageGroupData} />}
           </CardContent>
         </Card>
       </div>
@@ -385,7 +303,7 @@ export function HealthInsights() {
           <CardDescription>Number of health consultations over the past 6 months</CardDescription>
         </CardHeader>
         <CardContent>
-          <SimpleLineChart data={monthlyTrendsData} />
+          {isLoading ? <Skeleton className="w-full h-[300px]" /> : <SimpleLineChart data={monthlyTrendsData} />}
         </CardContent>
       </Card>
 
