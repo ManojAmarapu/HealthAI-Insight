@@ -27,7 +27,7 @@ const App = () => (
 
             <div className="flex flex-col flex-1">
               {/* Header */}
-              <header className="h-16 flex items-center justify-between px-6 border-b bg-card shadow-soft">
+              <header className="h-16 flex items-center justify-between px-3 sm:px-6 border-b bg-card shadow-soft">
                 <SidebarTrigger className="p-2 hover:bg-muted rounded-lg transition-smooth" />
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 mr-4">
@@ -41,7 +41,7 @@ const App = () => (
               </header>
 
               {/* Main Content */}
-              <main className="flex-1 p-6 overflow-auto">
+              <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
                 <Routes>
                   <Route path="/" element={<Chat />} />
                   <Route path="/predict" element={<Predict />} />

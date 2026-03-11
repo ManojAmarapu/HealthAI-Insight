@@ -78,7 +78,7 @@ export function ChatInterface() {
     <div className="flex flex-col h-full">
       {/* Chat Messages */}
       <Card className="flex-1 mb-4 border-border shadow-soft">
-        <ScrollArea ref={scrollAreaRef} className="h-[500px] p-4">
+        <ScrollArea ref={scrollAreaRef} className="h-[360px] sm:h-[440px] md:h-[500px] p-4">
           <div className="space-y-4">
             {messages.map((message) => (
               <div
@@ -145,10 +145,10 @@ export function ChatInterface() {
             className="flex-1 border-border focus:ring-primary"
             disabled={isTyping}
           />
-          <Button
+          <Button 
             onClick={handleSendMessage}
             disabled={isTyping || !inputMessage.trim()}
-            className="bg-gradient-primary hover:shadow-glow transition-spring shadow-medical px-6"
+            className="bg-gradient-primary hover:shadow-glow transition-spring shadow-medical px-6 min-h-[44px]"
           >
             <Send className="w-4 h-4" />
           </Button>

@@ -247,7 +247,7 @@ export function TreatmentSuggestions() {
       {selectedTreatment && (
         <Card className="shadow-soft border-border">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-foreground">
                 Treatment Recommendations
               </span>
@@ -255,21 +255,23 @@ export function TreatmentSuggestions() {
                 {selectedTreatment.category}
               </Badge>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="break-words">
               Based on your symptoms: "{userInput}"
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="treatment" className="w-full">
               <TabsList className="grid w-full grid-cols-3 bg-muted">
-                <TabsTrigger value="treatment" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  Treatment Steps
+                <TabsTrigger value="treatment" className="text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <span className="hidden sm:inline">Treatment Steps</span>
+                  <span className="sm:hidden">Treatment</span>
                 </TabsTrigger>
-                <TabsTrigger value="precautions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <TabsTrigger value="precautions" className="text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   Precautions
                 </TabsTrigger>
-                <TabsTrigger value="help" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  When to Seek Help
+                <TabsTrigger value="help" className="text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <span className="hidden sm:inline">When to Seek Help</span>
+                  <span className="sm:hidden">Seek Help</span>
                 </TabsTrigger>
               </TabsList>
 
