@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,13 +25,17 @@ export function ChatInterface() {
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  // BUG-02: Store timeout ID so we can clear it on unmount
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
+      // BUG-15: Use a more resilient selector fallback
+      const viewport =
+        scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]') ||
+        scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') ||
+        scrollAreaRef.current;
+      viewport.scrollTop = viewport.scrollHeight;
     }
   };
 
@@ -39,12 +43,25 @@ export function ChatInterface() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async () => {
+  // BUG-02: Clear the pending timeout when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) {
+        clearTimeout(typingTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleSendMessage = useCallback(() => {
     if (!inputMessage.trim()) return;
 
+    // BUG-07: Capture the current message text BEFORE clearing state
+    const currentMessage = inputMessage;
+
     const userMessage: Message = {
-      id: messages.length + 1,
-      text: inputMessage,
+      // BUG-01: Use functional updater form to get stable ID from latest state
+      id: Date.now(),
+      text: currentMessage,
       sender: 'user',
       timestamp: new Date()
     };
@@ -53,21 +70,24 @@ export function ChatInterface() {
     setInputMessage("");
     setIsTyping(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: messages.length + 2,
-        text: generateAIResponse(inputMessage),
+    // BUG-02: Save timer reference so we can clear it on unmount
+    typingTimerRef.current = setTimeout(() => {
+      const aiMessage: Message = {
+        id: Date.now() + 1,
+        // BUG-07: Use captured currentMessage, not stale inputMessage closure
+        text: generateAIResponse(currentMessage),
         sender: 'ai',
         timestamp: new Date()
       };
 
-      setMessages(prev => [...prev, aiResponse]);
+      setMessages(prev => [...prev, aiMessage]);
       setIsTyping(false);
+      typingTimerRef.current = null;
     }, 1000 + Math.random() * 2000);
-  };
+  }, [inputMessage]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  // BUG-20: Replace deprecated onKeyPress with onKeyDown
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -140,7 +160,7 @@ export function ChatInterface() {
           <Input
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder="Ask me about your health concerns..."
             className="flex-1 border-border focus:ring-primary"
             disabled={isTyping}

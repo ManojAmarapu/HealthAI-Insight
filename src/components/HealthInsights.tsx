@@ -10,6 +10,8 @@ import { useHealthInsights } from "@/hooks/useHealthInsights";
 
 export function HealthInsights() {
   const [userInput, setUserInput] = useState<string>("");
+  // BUG-18: Track last-run input so we can disable re-run with identical text
+  const [lastQueriedInput, setLastQueriedInput] = useState<string>("");
   const { data: customInsights, loading: isLoading, generateInsights } = useHealthInsights();
   // Sample data for charts
   const commonConditionsData = useMemo(() => [
@@ -96,8 +98,13 @@ export function HealthInsights() {
               />
             </div>
             <Button
-              onClick={() => generateInsights(userInput)}
-              disabled={!userInput.trim() || isLoading}
+              onClick={() => {
+                // BUG-18: Store the queried input so we can compare on next click
+                setLastQueriedInput(userInput);
+                generateInsights(userInput);
+              }}
+              // BUG-18: Disable if loading, empty, or same input as last successful run
+              disabled={!userInput.trim() || isLoading || (userInput.trim() === lastQueriedInput.trim() && !!customInsights)}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {isLoading ? (
@@ -121,7 +128,11 @@ export function HealthInsights() {
           <Card className="shadow-soft border-border">
             <CardHeader>
               <CardTitle className="text-foreground">Personalized Health Insights</CardTitle>
-              <CardDescription>Based on: "{customInsights.userQuery}"</CardDescription>
+              <CardDescription>
+                {customInsights.isGeneric
+                  ? <>General wellness insights — try mentioning a specific topic (e.g. "heart health", "diabetes", "sleep") for tailored advice.</>  
+                  : <>Based on: "{customInsights.userQuery}"</>}
+              </CardDescription>
             </CardHeader>
           </Card>
 

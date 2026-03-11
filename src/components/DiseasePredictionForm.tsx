@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, AlertCircle, CheckCircle } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, AlertCircle, CheckCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,12 +21,21 @@ export function DiseasePredictionForm() {
 
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // BUG-03: Store timer ref so we can clear on unmount
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const commonSymptoms = [
     'Fever', 'Headache', 'Cough', 'Sore throat', 'Body aches',
     'Nausea', 'Vomiting', 'Diarrhea', 'Fatigue', 'Dizziness',
     'Shortness of breath', 'Chest pain', 'Abdominal pain', 'Skin rash'
   ];
+
+  // BUG-03: Clear pending timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleSymptomChange = (symptom: string, checked: boolean) => {
     setFormData(prev => ({
@@ -37,20 +46,45 @@ export function DiseasePredictionForm() {
     }));
   };
 
-  const handlePredict = async () => {
-    if (!formData.age || !formData.gender || formData.symptoms.length === 0) {
-      return;
-    }
+  // BUG-19: Clear all symptoms at once
+  const handleClearSymptoms = () => {
+    setFormData(prev => ({ ...prev, symptoms: [] }));
+  };
 
+  const handlePredict = () => {
+    // BUG-13: Validate age range
+    const ageNum = parseInt(formData.age);
+    if (!formData.age || isNaN(ageNum) || ageNum < 0 || ageNum > 120) return;
+    if (!formData.gender || formData.symptoms.length === 0) return;
+
+    // BUG-08: Clear old prediction immediately so user knows a new analysis is running
+    setPrediction(null);
     setIsLoading(true);
 
-    // Simulate API call delay
-    setTimeout(() => {
-      const result = analyzeSymptoms(formData.symptoms, parseInt(formData.age), formData.gender);
+    timerRef.current = setTimeout(() => {
+      const result = analyzeSymptoms(formData.symptoms, ageNum, formData.gender);
       setPrediction(result);
       setIsLoading(false);
+      timerRef.current = null;
     }, 1500);
   };
+
+  // BUG-13: Validate age on change — prevent entering out-of-range values
+  const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Allow empty string (clearing the field) or valid numbers in range
+    if (val === '' || (Number(val) >= 0 && Number(val) <= 120)) {
+      setFormData(prev => ({ ...prev, age: val }));
+    }
+  };
+
+  const isFormValid =
+    formData.age !== '' &&
+    !isNaN(parseInt(formData.age)) &&
+    parseInt(formData.age) >= 0 &&
+    parseInt(formData.age) <= 120 &&
+    !!formData.gender &&
+    formData.symptoms.length > 0;
 
   return (
     <div className="space-y-6">
@@ -68,15 +102,20 @@ export function DiseasePredictionForm() {
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="age">Age</Label>
+              <Label htmlFor="age">Age (0–120)</Label>
               <Input
                 id="age"
                 type="number"
+                min={0}
+                max={120}
                 placeholder="Enter your age"
                 value={formData.age}
-                onChange={(e) => setFormData(prev => ({ ...prev, age: e.target.value }))}
+                onChange={handleAgeChange}
                 className="border-border focus:ring-primary"
               />
+              {formData.age !== '' && (parseInt(formData.age) < 0 || parseInt(formData.age) > 120) && (
+                <p className="text-xs text-destructive">Please enter a valid age between 0 and 120.</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -96,7 +135,21 @@ export function DiseasePredictionForm() {
 
           {/* Symptoms Selection */}
           <div className="space-y-3">
-            <Label>Select your symptoms</Label>
+            <div className="flex items-center justify-between">
+              <Label>Select your symptoms</Label>
+              {/* BUG-19: Clear All button */}
+              {formData.symptoms.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearSymptoms}
+                  className="text-xs text-muted-foreground hover:text-destructive h-7 px-2 gap-1"
+                >
+                  <X className="w-3 h-3" />
+                  Clear All ({formData.symptoms.length})
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {commonSymptoms.map((symptom) => (
                 <div key={symptom} className="flex items-center space-x-2">
@@ -148,7 +201,7 @@ export function DiseasePredictionForm() {
 
           <Button
             onClick={handlePredict}
-            disabled={isLoading || !formData.age || !formData.gender || formData.symptoms.length === 0}
+            disabled={isLoading || !isFormValid}
             className="w-full bg-gradient-primary hover:shadow-glow transition-spring shadow-medical"
           >
             {isLoading ? (

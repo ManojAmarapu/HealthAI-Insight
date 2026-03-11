@@ -8,25 +8,49 @@ export interface PredictionResult {
     recommendations: string[];
 }
 
+// BUG-11: Age and gender are now integrated into the prediction logic
 export const analyzeSymptoms = (symptoms: string[], age: number, gender: string): PredictionResult => {
     const symptomSet = new Set(symptoms.map(s => s.toLowerCase()));
+    const isElderly = age >= 65;
+    const isChild = age <= 12;
 
-    // Simple rule-based prediction logic
-    if (symptomSet.has('fever') && symptomSet.has('cough') && symptomSet.has('sore throat')) {
+    // Chest pain + shortness of breath — elevated risk for elderly
+    if (symptomSet.has('chest pain') && symptomSet.has('shortness of breath')) {
         return {
-            disease: 'Common Cold/Flu',
-            probability: 85,
-            reasoning: 'The combination of fever, cough, and sore throat are classic symptoms of viral upper respiratory infections.',
-            severity: 'medium',
+            disease: 'Possible Cardiac/Respiratory Issue',
+            probability: isElderly ? 85 : 70,
+            reasoning: `Chest pain with shortness of breath requires immediate medical evaluation to rule out serious conditions.${isElderly ? ' The risk is elevated given your age group.' : ''}`,
+            severity: 'high',
             recommendations: [
-                'Get plenty of rest and stay hydrated',
-                'Use throat lozenges for sore throat relief',
-                'Monitor temperature and seek medical care if fever exceeds 103°F',
-                'Consider over-the-counter pain relievers as needed'
+                'SEEK IMMEDIATE MEDICAL ATTENTION',
+                'Call emergency services if symptoms are severe',
+                'Do not drive yourself to the hospital',
+                'Have someone accompany you to medical facility'
             ]
         };
     }
 
+    // Fever + cough + sore throat
+    if (symptomSet.has('fever') && symptomSet.has('cough') && symptomSet.has('sore throat')) {
+        // Children with fever are managed differently
+        const childNote = isChild ? ' For children, always consult a paediatrician before giving any medication.' : '';
+        return {
+            disease: 'Common Cold/Flu',
+            probability: 85,
+            reasoning: `The combination of fever, cough, and sore throat are classic symptoms of viral upper respiratory infections.${childNote}`,
+            severity: isChild ? 'medium' : 'medium',
+            recommendations: [
+                'Get plenty of rest and stay hydrated',
+                'Use throat lozenges for sore throat relief',
+                `Monitor temperature and seek medical care if fever exceeds ${isChild ? '100.4°F (38°C)' : '103°F (39.4°C)'}`,
+                isChild
+                    ? 'Do NOT give aspirin to children — use paediatric acetaminophen as directed'
+                    : 'Consider over-the-counter pain relievers as needed'
+            ]
+        };
+    }
+
+    // Headache + nausea + dizziness
     if (symptomSet.has('headache') && symptomSet.has('nausea') && symptomSet.has('dizziness')) {
         return {
             disease: 'Migraine',
@@ -42,6 +66,7 @@ export const analyzeSymptoms = (symptoms: string[], age: number, gender: string)
         };
     }
 
+    // Abdominal pain + nausea + vomiting
     if (symptomSet.has('abdominal pain') && symptomSet.has('nausea') && symptomSet.has('vomiting')) {
         return {
             disease: 'Gastroenteritis',
@@ -57,32 +82,24 @@ export const analyzeSymptoms = (symptoms: string[], age: number, gender: string)
         };
     }
 
-    if (symptomSet.has('chest pain') && symptomSet.has('shortness of breath')) {
-        return {
-            disease: 'Possible Cardiac/Respiratory Issue',
-            probability: 70,
-            reasoning: 'Chest pain with shortness of breath requires immediate medical evaluation to rule out serious conditions.',
-            severity: 'high',
-            recommendations: [
-                'SEEK IMMEDIATE MEDICAL ATTENTION',
-                'Call emergency services if symptoms are severe',
-                'Do not drive yourself to the hospital',
-                'Have someone accompany you to medical facility'
-            ]
-        };
-    }
+    // Default — age/gender-aware suggestion
+    const elderlyNote = isElderly ? ' At your age, it is important to see a doctor sooner rather than later to rule out underlying conditions.' : '';
+    const genderNote = gender === 'female'
+        ? ' Some symptoms in women can present differently from typical presentations; please consult a doctor if symptoms persist.'
+        : '';
 
-    // Default prediction for other symptom combinations
     return {
         disease: 'General Viral Infection',
         probability: 60,
-        reasoning: 'Based on the symptoms provided, this appears to be a mild viral infection or general malaise.',
-        severity: 'low',
+        reasoning: `Based on the symptoms provided, this appears to be a mild viral infection or general malaise.${elderlyNote}${genderNote}`,
+        severity: isElderly ? 'medium' : 'low',
         recommendations: [
             'Get adequate rest and sleep',
             'Stay well hydrated',
             'Monitor symptoms for any changes',
-            'Consult healthcare provider if symptoms worsen or persist'
+            isElderly
+                ? 'Consult your healthcare provider promptly if symptoms do not improve within 24 hours'
+                : 'Consult healthcare provider if symptoms worsen or persist'
         ]
     };
 };
