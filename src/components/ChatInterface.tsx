@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User } from "lucide-react";
+import { Send, Bot, User, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { generateAIResponse } from "@/services/chatEngine";
+import { Badge } from "@/components/ui/badge";
+import { getAIResponse, generateAIResponse, ChatMessage } from "@/services/chatEngine";
+import { isGeminiAvailable } from "@/services/geminiClient";
 
 interface Message {
   id: number;
@@ -17,7 +19,7 @@ export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      text: "Hello! I'm HealthAI, your personal healthcare assistant. I can help you with health questions, symptoms analysis, and general medical information. How can I assist you today?",
+      text: "Hello! I'm HealthAI, your personal healthcare assistant powered by Google Gemini AI. I can help you with health questions, symptoms analysis, medication guidance, and general medical information. How can I assist you today?",
       sender: 'ai',
       timestamp: new Date()
     }
@@ -25,12 +27,16 @@ export function ChatInterface() {
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  // BUG-02: Store timeout ID so we can clear it on unmount
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Gemini conversation history (parallel to messages state)
+  const conversationHistoryRef = useRef<ChatMessage[]>([]);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
-      // BUG-15: Use a more resilient selector fallback
       const viewport =
         scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]') ||
         scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]') ||
@@ -39,54 +45,70 @@ export function ChatInterface() {
     }
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  useEffect(() => { scrollToBottom(); }, [messages]);
 
-  // BUG-02: Clear the pending timeout when the component unmounts
-  useEffect(() => {
-    return () => {
-      if (typingTimerRef.current) {
-        clearTimeout(typingTimerRef.current);
-      }
-    };
-  }, []);
+  const handleSendMessage = useCallback(async () => {
+    if (!inputMessage.trim() || isTyping) return;
 
-  const handleSendMessage = useCallback(() => {
-    if (!inputMessage.trim()) return;
-
-    // BUG-07: Capture the current message text BEFORE clearing state
     const currentMessage = inputMessage;
 
-    const userMessage: Message = {
-      // BUG-01: Use functional updater form to get stable ID from latest state
+    const userMsg: Message = {
       id: Date.now(),
       text: currentMessage,
       sender: 'user',
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMsg]);
     setInputMessage("");
     setIsTyping(true);
 
-    // BUG-02: Save timer reference so we can clear it on unmount
-    typingTimerRef.current = setTimeout(() => {
-      const aiMessage: Message = {
+    // Add to Gemini history
+    conversationHistoryRef.current.push({
+      role: "user",
+      parts: [{ text: currentMessage }]
+    });
+
+    try {
+      // Call Gemini with full conversation history (or fallback if no key)
+      const responseText = await getAIResponse(currentMessage, conversationHistoryRef.current.slice(0, -1));
+
+      if (!isMountedRef.current) return;
+
+      const aiMsg: Message = {
         id: Date.now() + 1,
-        // BUG-07: Use captured currentMessage, not stale inputMessage closure
-        text: generateAIResponse(currentMessage),
+        text: responseText,
         sender: 'ai',
         timestamp: new Date()
       };
 
-      setMessages(prev => [...prev, aiMessage]);
-      setIsTyping(false);
-      typingTimerRef.current = null;
-    }, 1000 + Math.random() * 2000);
-  }, [inputMessage]);
+      setMessages(prev => [...prev, aiMsg]);
 
-  // BUG-20: Replace deprecated onKeyPress with onKeyDown
+      // Add AI response to history for next turn
+      conversationHistoryRef.current.push({
+        role: "model",
+        parts: [{ text: responseText }]
+      });
+
+      // Keep history to last 20 turns to avoid token limits
+      if (conversationHistoryRef.current.length > 20) {
+        conversationHistoryRef.current = conversationHistoryRef.current.slice(-20);
+      }
+    } catch {
+      if (!isMountedRef.current) return;
+      // Ultimate fallback if even the fallback throws
+      const fallbackText = generateAIResponse(currentMessage);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        text: fallbackText,
+        sender: 'ai',
+        timestamp: new Date()
+      }]);
+    } finally {
+      if (isMountedRef.current) setIsTyping(false);
+    }
+  }, [inputMessage, isTyping]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -94,8 +116,23 @@ export function ChatInterface() {
     }
   };
 
+  const geminiActive = isGeminiAvailable();
+
   return (
     <div className="flex flex-col h-full">
+      {/* AI Status Badge */}
+      <div className="flex justify-end mb-2">
+        {geminiActive ? (
+          <Badge className="bg-green-500 text-white gap-1 text-xs">
+            <Zap className="w-3 h-3" /> Gemini AI Active
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-xs text-muted-foreground gap-1">
+            <Zap className="w-3 h-3" /> Add API key to enable AI
+          </Badge>
+        )}
+      </div>
+
       {/* Chat Messages */}
       <Card className="flex-1 mb-4 border-border shadow-soft">
         <ScrollArea ref={scrollAreaRef} className="h-[360px] sm:h-[440px] md:h-[500px] p-4">
@@ -103,31 +140,22 @@ export function ChatInterface() {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
+                className={`flex gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.sender === 'ai' && (
                   <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center shadow-medical flex-shrink-0">
                     <Bot className="w-4 h-4 text-primary-foreground" />
                   </div>
                 )}
-
-                <div
-                  className={`max-w-[80%] rounded-lg p-3 shadow-soft ${message.sender === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-card border border-border'
-                    }`}
+                <div className={`max-w-[80%] rounded-lg p-3 shadow-soft ${message.sender === 'user'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-card border border-border'}`}
                 >
-                  <p className="text-sm leading-relaxed">{message.text}</p>
-                  <p className={`text-xs mt-2 opacity-70 ${message.sender === 'user' ? 'text-primary-foreground' : 'text-muted-foreground'
-                    }`}>
-                    {message.timestamp.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
+                  <p className={`text-xs mt-2 opacity-70 ${message.sender === 'user' ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-
                 {message.sender === 'user' && (
                   <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center shadow-soft flex-shrink-0">
                     <User className="w-4 h-4 text-accent-foreground" />
@@ -161,11 +189,11 @@ export function ChatInterface() {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask me about your health concerns..."
+            placeholder={geminiActive ? "Ask me anything about your health..." : "Ask me about your health concerns..."}
             className="flex-1 border-border focus:ring-primary"
             disabled={isTyping}
           />
-          <Button 
+          <Button
             onClick={handleSendMessage}
             disabled={isTyping || !inputMessage.trim()}
             className="bg-gradient-primary hover:shadow-glow transition-spring shadow-medical px-6 min-h-[44px]"

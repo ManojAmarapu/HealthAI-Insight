@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, AlertCircle, CheckCircle, X } from "lucide-react";
+import { Search, AlertCircle, CheckCircle, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { analyzeSymptoms, PredictionResult } from "@/services/symptomEngine";
+import { analyzeSymptomsAI, PredictionResult } from "@/services/symptomEngine";
 import { severityStyles } from "@/constants/severityLevels";
+import { isGeminiAvailable } from "@/services/geminiClient";
 
 export function DiseasePredictionForm() {
   const [formData, setFormData] = useState({
@@ -21,8 +22,7 @@ export function DiseasePredictionForm() {
 
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  // BUG-03: Store timer ref so we can clear on unmount
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   const commonSymptoms = [
     'Fever', 'Headache', 'Cough', 'Sore throat', 'Body aches',
@@ -30,11 +30,10 @@ export function DiseasePredictionForm() {
     'Shortness of breath', 'Chest pain', 'Abdominal pain', 'Skin rash'
   ];
 
-  // BUG-03: Clear pending timeout on unmount
+  const geminiActive = isGeminiAvailable();
+
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    return () => { isMountedRef.current = false; };
   }, []);
 
   const handleSymptomChange = (symptom: string, checked: boolean) => {
@@ -46,33 +45,37 @@ export function DiseasePredictionForm() {
     }));
   };
 
-  // BUG-19: Clear all symptoms at once
   const handleClearSymptoms = () => {
     setFormData(prev => ({ ...prev, symptoms: [] }));
   };
 
-  const handlePredict = () => {
-    // BUG-13: Validate age range
+  const handlePredict = async () => {
     const ageNum = parseInt(formData.age);
     if (!formData.age || isNaN(ageNum) || ageNum < 0 || ageNum > 120) return;
     if (!formData.gender || formData.symptoms.length === 0) return;
 
-    // BUG-08: Clear old prediction immediately so user knows a new analysis is running
     setPrediction(null);
     setIsLoading(true);
 
-    timerRef.current = setTimeout(() => {
-      const result = analyzeSymptoms(formData.symptoms, ageNum, formData.gender);
-      setPrediction(result);
-      setIsLoading(false);
-      timerRef.current = null;
-    }, 1500);
+    try {
+      // Auto-uses Gemini if key is configured, falls back to rule-based otherwise
+      const result = await analyzeSymptomsAI(
+        formData.symptoms,
+        ageNum,
+        formData.gender,
+        formData.duration,
+        formData.severity
+      );
+      if (isMountedRef.current) setPrediction(result);
+    } catch {
+      if (isMountedRef.current) setPrediction(null);
+    } finally {
+      if (isMountedRef.current) setIsLoading(false);
+    }
   };
 
-  // BUG-13: Validate age on change — prevent entering out-of-range values
   const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    // Allow empty string (clearing the field) or valid numbers in range
     if (val === '' || (Number(val) >= 0 && Number(val) <= 120)) {
       setFormData(prev => ({ ...prev, age: val }));
     }
@@ -94,8 +97,17 @@ export function DiseasePredictionForm() {
             <Search className="w-5 h-5 text-primary" />
             Disease Prediction Form
           </CardTitle>
-          <CardDescription>
-            Please provide your information and symptoms for AI-powered health analysis
+          <CardDescription className="flex items-center justify-between flex-wrap gap-2">
+            <span>Provide your symptoms and health information for AI-powered analysis</span>
+            {geminiActive ? (
+              <Badge className="bg-green-500 text-white gap-1 text-xs">
+                <Zap className="w-3 h-3" /> Gemini AI
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs text-muted-foreground gap-1">
+                <Zap className="w-3 h-3" /> Add API key for AI
+              </Badge>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -137,7 +149,6 @@ export function DiseasePredictionForm() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>Select your symptoms</Label>
-              {/* BUG-19: Clear All button */}
               {formData.symptoms.length > 0 && (
                 <Button
                   variant="ghost"
@@ -207,7 +218,7 @@ export function DiseasePredictionForm() {
             {isLoading ? (
               <>
                 <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                Analyzing...
+                {geminiActive ? "Analyzing with Gemini AI..." : "Analyzing..."}
               </>
             ) : (
               <>
@@ -219,7 +230,6 @@ export function DiseasePredictionForm() {
         </CardContent>
       </Card>
 
-      {/* Prediction Results */}
       {prediction && (
         <Card className="shadow-soft border-border">
           <CardHeader>

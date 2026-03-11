@@ -1,33 +1,45 @@
 import { useState, useRef, useEffect } from "react";
-import { generateCustomInsights, HealthInsightsData } from "@/services/insightsEngine";
+import { generateInsightsAI, HealthInsightsData } from "@/services/insightsEngine";
+import { isGeminiAvailable } from "@/services/geminiClient";
 
 export function useHealthInsights() {
-    const [data, setData] = useState<HealthInsightsData | null>(null);
-    const [loading, setLoading] = useState<boolean>(false);
-    // BUG-04: store timer ref for cleanup
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [data, setData] = useState<HealthInsightsData | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const abortRef = useRef<boolean>(false);
 
-    // BUG-04: clean up on unmount
-    useEffect(() => {
-        return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
-        };
-    }, []);
-
-    const generateInsights = (userInput: string) => {
-        if (!userInput.trim()) return;
-        // BUG-14: Guard against double invocation while already loading
-        if (loading) return;
-
-        setLoading(true);
-
-        timerRef.current = setTimeout(() => {
-            const insights = generateCustomInsights(userInput);
-            setData(insights);
-            setLoading(false);
-            timerRef.current = null;
-        }, 2000);
+  // Cancel any in-flight request on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current = true;
     };
+  }, []);
 
-    return { data, loading, generateInsights };
+  const generateInsights = async (userInput: string) => {
+    if (!userInput.trim()) return;
+    if (loading) return;
+
+    abortRef.current = false;
+    setLoading(true);
+
+    try {
+      // Use Gemini async call if available, otherwise falls back internally
+      const insights = await generateInsightsAI(userInput);
+
+      // Don't update state if component was unmounted
+      if (!abortRef.current) {
+        setData(insights);
+      }
+    } catch {
+      if (!abortRef.current) {
+        // Fallback already handled inside generateInsightsAI — this is a last resort
+        setData(null);
+      }
+    } finally {
+      if (!abortRef.current) {
+        setLoading(false);
+      }
+    }
+  };
+
+  return { data, loading, generateInsights, isAIPowered: isGeminiAvailable() };
 }

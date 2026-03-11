@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Stethoscope, Heart, AlertTriangle, Info, Search } from "lucide-react";
+import { Stethoscope, Heart, AlertTriangle, Info, Search, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isGeminiAvailable, getGeminiModel } from "@/services/geminiClient";
 
 interface Treatment {
   category: string;
@@ -145,25 +146,71 @@ export function TreatmentSuggestions() {
   const [userInput, setUserInput] = useState<string>("");
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  // BUG-05: Ref to hold the timer ID so we can clear it on unmount
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+  const geminiActive = isGeminiAvailable();
 
-  // BUG-05: Clean up any pending timeout when the component unmounts
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    return () => { isMountedRef.current = false; };
   }, []);
 
-  const generateTreatment = () => {
+  // Gemini-powered treatment lookup for any condition
+  const fetchTreatmentFromGemini = async (query: string): Promise<Treatment> => {
+    const prompt = `You are HealthAI, a medical information assistant.
+
+The user describes: "${query}"
+
+Return ONLY a valid JSON object (no markdown, no extra text) in this exact format:
+{
+  "category": "<Medical category e.g. Respiratory/Neurological/Gastrointestinal/General/First Aid>",
+  "steps": [
+    "Step 1",
+    "Step 2",
+    "Step 3",
+    "Step 4",
+    "Step 5",
+    "Step 6"
+  ],
+  "precautions": [
+    "Precaution 1",
+    "Precaution 2",
+    "Precaution 3",
+    "Precaution 4"
+  ],
+  "whenToSeekHelp": [
+    "Warning sign 1",
+    "Warning sign 2",
+    "Warning sign 3",
+    "Warning sign 4",
+    "Warning sign 5"
+  ]
+}
+
+Make all advice SPECIFIC to the described condition. Include a medical disclaimer as the last step.`;
+
+    const model = getGeminiModel();
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+    const jsonText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(jsonText) as Treatment;
+  };
+
+  const generateTreatment = async () => {
     if (!userInput.trim()) return;
-    
     setIsLoading(true);
-    
-    timerRef.current = setTimeout(() => {
+
+    try {
+      if (geminiActive) {
+        const treatment = await fetchTreatmentFromGemini(userInput);
+        if (isMountedRef.current) setSelectedTreatment(treatment);
+        return;
+      }
+      // Rule-based fallback
+      throw new Error("no key");
+    } catch {
+      // Fallback: keyword match against TREATMENT_DATA
+      if (!isMountedRef.current) return;
       const input = userInput.toLowerCase();
       let matchedTreatment: Treatment;
-      
       if (input.includes("cold") || input.includes("flu") || input.includes("cough") || input.includes("congestion")) {
         matchedTreatment = TREATMENT_DATA["common-cold"];
       } else if (input.includes("headache") || input.includes("migraine") || input.includes("head pain")) {
@@ -177,34 +224,15 @@ export function TreatmentSuggestions() {
       } else {
         matchedTreatment = {
           category: "General",
-          steps: [
-            "Rest and avoid strenuous activities",
-            "Stay hydrated with plenty of water",
-            "Monitor symptoms and note any changes",
-            "Apply ice or heat as appropriate for the condition",
-            "Consider over-the-counter medications if needed",
-            "Maintain good hygiene and hand washing"
-          ],
-          precautions: [
-            "Don't ignore worsening symptoms",
-            "Avoid self-medicating with strong medications",
-            "Don't exceed recommended dosages",
-            "Avoid activities that might worsen the condition"
-          ],
-          whenToSeekHelp: [
-            "Symptoms worsen or don't improve in 24-48 hours",
-            "Development of severe pain or discomfort",
-            "Signs of infection or complications",
-            "Difficulty breathing or swallowing",
-            "Any concerning or unusual symptoms"
-          ]
+          steps: ["Rest and avoid strenuous activities", "Stay hydrated with plenty of water", "Monitor symptoms and note any changes", "Apply ice or heat as appropriate", "Consider over-the-counter medications if needed", "Maintain good hygiene and hand washing"],
+          precautions: ["Don't ignore worsening symptoms", "Avoid self-medicating with strong medications", "Don't exceed recommended dosages", "Avoid activities that might worsen the condition"],
+          whenToSeekHelp: ["Symptoms worsen or don't improve in 24-48 hours", "Development of severe pain or discomfort", "Signs of infection or complications", "Difficulty breathing or swallowing", "Any concerning or unusual symptoms"]
         };
       }
-      
       setSelectedTreatment(matchedTreatment);
-      setIsLoading(false);
-      timerRef.current = null;
-    }, 1500);
+    } finally {
+      if (isMountedRef.current) setIsLoading(false);
+    }
   };
 
   return (
@@ -215,8 +243,17 @@ export function TreatmentSuggestions() {
             <Stethoscope className="w-5 h-5 text-primary" />
             Treatment Suggestions
           </CardTitle>
-          <CardDescription>
-            Select a condition to get first-aid and treatment recommendations
+          <CardDescription className="flex items-center justify-between flex-wrap gap-2">
+            <span>Select a condition to get first-aid and treatment recommendations</span>
+            {geminiActive ? (
+              <Badge className="bg-green-500 text-white gap-1 text-xs">
+                <Zap className="w-3 h-3" /> Gemini AI
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs text-muted-foreground gap-1">
+                <Zap className="w-3 h-3" /> Add API key for AI
+              </Badge>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -238,7 +275,7 @@ export function TreatmentSuggestions() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Analyzing...
+                  {geminiActive ? "Asking Gemini AI..." : "Analyzing..."}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
