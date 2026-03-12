@@ -48,9 +48,10 @@ export function ChatInterface() {
   useEffect(() => { scrollToBottom(); }, [messages]);
 
   const handleSendMessage = useCallback(async () => {
-    if (!inputMessage.trim() || isTyping) return;
-
+    // BUG-07: Capture current input synchronously before any state updates
     const currentMessage = inputMessage;
+    
+    if (!currentMessage.trim() || isTyping) return;
 
     const userMsg: Message = {
       id: Date.now(),

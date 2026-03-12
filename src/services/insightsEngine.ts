@@ -119,7 +119,8 @@ export const generateCustomInsights = (userInput: string): HealthInsightsData =>
   }
 
   return {
-    userQuery: userInput,
+    // BUG-10: Display the specific topic back to the user to acknowledge we read it
+    userQuery: `General wellness insights for: ${userInput}`,
     isGeneric: true,
     recommendations: ["Maintain a balanced diet with fruits and vegetables", "Exercise regularly for overall fitness", "Get adequate sleep (7-9 hours nightly)", "Stay hydrated throughout the day", "Schedule regular health checkups"],
     riskFactors: ["Sedentary lifestyle", "Poor diet habits", "Chronic stress", "Lack of sleep", "Smoking or excessive alcohol"],

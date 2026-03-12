@@ -138,16 +138,21 @@ export const analyzeSymptoms = (symptoms: string[], age: number, gender: string)
   const elderlyNote = isElderly ? " At your age, it is important to see a doctor sooner rather than later to rule out underlying conditions." : "";
   const genderNote = gender === "female" ? " Some symptoms in women can present differently from typical presentations; please consult a doctor if symptoms persist." : "";
 
+  // BUG-11: Actually scale probability and severity based on age
+  let baseProbability = 60;
+  if (isElderly) baseProbability += 15;
+  if (isChild) baseProbability += 10;
+
   return {
     disease: "General Viral Infection",
-    probability: 60,
+    probability: baseProbability,
     reasoning: `Based on the symptoms provided, this appears to be a mild viral infection or general malaise.${elderlyNote}${genderNote}`,
-    severity: isElderly ? "medium" : "low",
+    severity: isElderly || isChild ? "medium" : "low",
     recommendations: [
       "Get adequate rest and sleep",
       "Stay well hydrated",
       "Monitor symptoms for any changes",
-      isElderly
+      isElderly || isChild
         ? "Consult your healthcare provider promptly if symptoms do not improve within 24 hours"
         : "Consult healthcare provider if symptoms worsen or persist",
     ],

@@ -54,6 +54,7 @@ export function DiseasePredictionForm() {
     if (!formData.age || isNaN(ageNum) || ageNum < 0 || ageNum > 120) return;
     if (!formData.gender || formData.symptoms.length === 0) return;
 
+    // BUG-08: Clear the old prediction immediately when starting a new one
     setPrediction(null);
     setIsLoading(true);
 
@@ -76,7 +77,8 @@ export function DiseasePredictionForm() {
 
   const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (val === '' || (Number(val) >= 0 && Number(val) <= 120)) {
+    // Only allow empty string or valid integers between 0 and 120
+    if (val === '' || (/^\d+$/.test(val) && Number(val) >= 0 && Number(val) <= 120)) {
       setFormData(prev => ({ ...prev, age: val }));
     }
   };
@@ -118,8 +120,9 @@ export function DiseasePredictionForm() {
               <Input
                 id="age"
                 type="number"
-                min={0}
-                max={120}
+                min="0"
+                max="120"
+                step="1"
                 placeholder="Enter your age"
                 value={formData.age}
                 onChange={handleAgeChange}

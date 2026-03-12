@@ -10,7 +10,7 @@ import { useHealthInsights } from "@/hooks/useHealthInsights";
 
 export function HealthInsights() {
   const [userInput, setUserInput] = useState<string>("");
-  // BUG-18: Track last-run input so we can disable re-run with identical text
+  // BUG-18: Track last-run input to disable re-run with identical text
   const [lastQueriedInput, setLastQueriedInput] = useState<string>("");
   const { data: customInsights, loading: isLoading, generateInsights } = useHealthInsights();
   // Sample data for charts
@@ -103,9 +103,9 @@ export function HealthInsights() {
                 setLastQueriedInput(userInput);
                 generateInsights(userInput);
               }}
-              // BUG-18: Disable if loading, empty, or same input as last successful run
-              disabled={!userInput.trim() || isLoading || (userInput.trim() === lastQueriedInput.trim() && !!customInsights)}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                // BUG-18: Disable if loading, empty, or exactly matches last successful run
+                disabled={!userInput.trim() || isLoading || (userInput.trim() === lastQueriedInput.trim() && customInsights !== null)}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">

@@ -47,7 +47,7 @@ export const generateAIResponseWithGemini = async (
 export const generateAIResponse = (userMessage: string): string => {
   const lowerMessage = userMessage.toLowerCase();
 
-  if (lowerMessage.includes("headache") || lowerMessage.includes("head pain") || lowerMessage.includes("migraine")) {
+  if (lowerMessage.includes("headache") || lowerMessage.includes("head pain") || lowerMessage.includes("migraine") || /\bhead(ache)?s?\b/i.test(lowerMessage)) {
     return "For headaches, I recommend: 1) Stay hydrated - drink plenty of water, 2) Get adequate rest in a quiet, dark room, 3) Apply a cold or warm compress, 4) Consider over-the-counter pain relievers like acetaminophen or ibuprofen. If headaches persist or worsen, please consult a healthcare professional.";
   }
   if (lowerMessage.includes("fever") || lowerMessage.includes("temperature") || lowerMessage.includes("high temp")) {

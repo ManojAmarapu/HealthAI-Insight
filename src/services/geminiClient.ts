@@ -25,10 +25,10 @@ const SAFETY_SETTINGS = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
 ];
 
-// Returns a configured Gemini Flash model instance
+// Returns a configured Gemini model instance
 export const getGeminiModel = () => {
   return getGenAI().getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash",
     safetySettings: SAFETY_SETTINGS,
   });
 };
