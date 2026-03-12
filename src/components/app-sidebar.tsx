@@ -51,7 +51,7 @@ const navigationItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === 'collapsed';
@@ -96,6 +96,7 @@ export function AppSidebar() {
                       end 
                       className={`${getNavCls({ isActive: isActive(item.url) })} 
                         flex items-center gap-3 p-3 rounded-lg w-full group`}
+                      onClick={() => setOpenMobile(false)}
                     >
                       <item.icon className="w-5 h-5 flex-shrink-0" />
                       {!collapsed && (

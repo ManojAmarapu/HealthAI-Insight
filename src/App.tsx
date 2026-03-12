@@ -25,7 +25,7 @@ const App = () => (
           <div className="min-h-screen flex w-full bg-background">
             <AppSidebar />
 
-            <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1 min-h-0 h-screen">
               {/* Header */}
               <header className="h-16 flex items-center justify-between px-3 sm:px-6 border-b bg-card shadow-soft">
                 <SidebarTrigger className="p-2 hover:bg-muted rounded-lg transition-smooth" />
@@ -40,8 +40,8 @@ const App = () => (
                 </div>
               </header>
 
-              {/* Main Content */}
-              <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
+              {/* Main Content — overflow hidden here so each page controls its own scroll */}
+              <main className="flex-1 min-h-0 p-3 sm:p-4 md:p-6 overflow-auto">
                 <Routes>
                   <Route path="/" element={<Chat />} />
                   <Route path="/predict" element={<Predict />} />
@@ -51,6 +51,13 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
+
+              {/* Medical Disclaimer Footer */}
+              <footer className="border-t border-border bg-muted/40 px-4 sm:px-6 py-2">
+                <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                  ⚕️ <strong>Medical Disclaimer:</strong> HealthAI provides general health information only and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider.
+                </p>
+              </footer>
             </div>
           </div>
         </SidebarProvider>

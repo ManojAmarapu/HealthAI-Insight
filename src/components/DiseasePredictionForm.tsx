@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, AlertCircle, CheckCircle, X, Zap } from "lucide-react";
+import { Search, AlertCircle, CheckCircle, X, Zap, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,10 @@ export function DiseasePredictionForm() {
     setFormData(prev => ({ ...prev, symptoms: [] }));
   };
 
+  const handleReset = () => {
+    setFormData({ age: '', gender: '', symptoms: [], duration: '', severity: '' });
+    setPrediction(null);
+  };
   const handlePredict = async () => {
     const ageNum = parseInt(formData.age);
     if (!formData.age || isNaN(ageNum) || ageNum < 0 || ageNum > 120) return;
@@ -282,6 +286,18 @@ export function DiseasePredictionForm() {
                 </p>
               </div>
             )}
+
+            {/* UX-05: New Prediction reset button */}
+            <div className="pt-2 border-t border-border">
+              <Button
+                variant="outline"
+                onClick={handleReset}
+                className="w-full gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Start New Prediction
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -119,6 +119,12 @@ export function HealthInsights() {
                 </div>
               )}
             </Button>
+            {/* UX-06: Hint when same query is blocked */}
+            {userInput.trim() === lastQueriedInput.trim() && customInsights !== null && !isLoading && (
+              <p className="text-xs text-muted-foreground text-center">
+                ✓ Insights already generated for this query. Edit your input to run again.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -284,6 +290,11 @@ export function HealthInsights() {
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Section label */}
+        <div className="lg:col-span-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Analytics Overview</h3>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Sample data for illustration</span>
+        </div>
         {/* Most Common Conditions */}
         <Card className="shadow-soft border-border">
           <CardHeader>
