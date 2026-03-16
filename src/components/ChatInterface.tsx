@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Zap, Trash2, Copy, Mic, MicOff, Check } from "lucide-react";
+import { Send, Bot, User, Zap, Trash2, Copy, Mic, MicOff, Check, SquarePen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,31 @@ import { getAIResponse, generateAIResponse, ChatMessage } from "@/services/chatE
 import { isGeminiAvailable } from "@/services/geminiClient";
 import { moderateInput } from "@/utils/contentModeration";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+
+// ── Web Speech API types (not in TS lib.dom by default) ───────────────────────
+interface ISpeechRecognition extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onresult: ((event: ISpeechRecognitionEvent) => void) | null;
+}
+interface ISpeechRecognitionEvent {
+  results: { [index: number]: { [index: number]: { transcript: string } } };
+}
+interface ISpeechRecognitionCtor {
+  new (): ISpeechRecognition;
+}
+declare global {
+  interface Window {
+    SpeechRecognition?: ISpeechRecognitionCtor;
+    webkitSpeechRecognition?: ISpeechRecognitionCtor;
+  }
+}
 
 interface Message {
   id: number;
@@ -134,11 +159,33 @@ export function ChatInterface() {
     "healthai_chat_messages",
     [makeWelcome()]
   );
+  const [lastActivityTs, setLastActivityTs] = useLocalStorage<number>(
+    "healthai_chat_last_activity",
+    Date.now()
+  );
   const [userName] = useLocalStorage<string>("healthai_user_name", "");
 
-  const [messages, setMessages] = useState<Message[]>(() =>
-    storedMessages.length > 0 ? storedMessages : [makeWelcome()]
-  );
+  // ── 3-day auto-expire: if last message > 3 days ago, start fresh ──
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const getInitialMessages = (): Message[] => {
+    const isExpired = Date.now() - lastActivityTs > THREE_DAYS_MS;
+    if (isExpired && storedMessages.length > 1) {
+      // Return fresh welcome + a soft system note
+      const daysSince = Math.floor((Date.now() - lastActivityTs) / (24 * 60 * 60 * 1000));
+      return [
+        makeWelcome(),
+        {
+          id: Date.now(),
+          text: `🌱 Starting a fresh conversation — your previous chat was ${daysSince} day${daysSince !== 1 ? 's' : ''} ago.`,
+          sender: 'ai',
+          timestamp: new Date().toISOString(),
+        },
+      ];
+    }
+    return storedMessages.length > 0 ? storedMessages : [makeWelcome()];
+  };
+
+  const [messages, setMessages] = useState<Message[]>(getInitialMessages);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -146,7 +193,7 @@ export function ChatInterface() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const conversationHistoryRef = useRef<ChatMessage[]>([]);
   const isMountedRef = useRef(true);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
   useEffect(() => {
     return () => { isMountedRef.current = false; };
@@ -164,8 +211,9 @@ export function ChatInterface() {
 
   // ── Voice input (Web Speech API) ─────────────────────────────────
   const toggleVoice = useCallback(() => {
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const SpeechRecognitionCtor: ISpeechRecognitionCtor | undefined =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
       toast.error("Voice input not supported", { description: "Try Chrome or Edge for voice input." });
       return;
     }
@@ -174,7 +222,7 @@ export function ChatInterface() {
       setIsListening(false);
       return;
     }
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionCtor();
     recognition.lang = 'en-US';
     recognition.interimResults = false;
     recognition.continuous = false;
@@ -186,7 +234,7 @@ export function ChatInterface() {
       setIsListening(false);
       toast.error("Voice input error", { description: "Please try speaking again." });
     };
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: ISpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       setInputMessage(prev => (prev ? `${prev} ${transcript}` : transcript).slice(0, CHAR_LIMIT));
     };
@@ -219,6 +267,7 @@ export function ChatInterface() {
     setIsTyping(true);
 
     conversationHistoryRef.current.push({ role: "user", parts: [{ text: currentMessage }] });
+    setLastActivityTs(Date.now()); // update last activity for 3-day expiry
 
     try {
       const responseText = await getAIResponse(currentMessage, conversationHistoryRef.current.slice(0, -1));
@@ -261,6 +310,7 @@ export function ChatInterface() {
     const fresh = makeWelcome();
     setMessages([fresh]);
     setStoredMessages([fresh]);
+    setLastActivityTs(Date.now());
     conversationHistoryRef.current = [];
     setInputMessage("");
   };
@@ -291,10 +341,14 @@ export function ChatInterface() {
           )}
         </div>
         {messages.length > 1 && (
-          <Button variant="ghost" size="sm" onClick={handleClearChat}
-            className="text-xs text-muted-foreground hover:text-destructive gap-1 h-7 px-2">
-            <Trash2 className="w-3 h-3" /> Clear Chat
-          </Button>
+          <button
+            onClick={handleClearChat}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted hover:border-primary/30 transition-all group"
+            title="Start a new conversation"
+          >
+            <SquarePen className="w-3.5 h-3.5 group-hover:text-primary transition-colors" />
+            New Chat
+          </button>
         )}
       </div>
 
