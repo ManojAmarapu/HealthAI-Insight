@@ -84,26 +84,24 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className={`${collapsed ? "w-16" : "w-64"} border-r bg-card transition-smooth`}
-      collapsible="icon"
+      className="border-r bg-card"
+      collapsible="offcanvas"
     >
       <SidebarContent className="p-4">
         {/* Logo Section */}
-        <div className="flex items-center gap-3 mb-8 px-2">
+          <div className="flex items-center gap-3 mb-8 px-2">
           <div className="w-10 h-10 bg-gradient-primary rounded-xl flex items-center justify-center shadow-medical">
             <Heart className="w-6 h-6 text-primary-foreground" />
           </div>
-          {!collapsed && (
-            <div>
-              <h1 className="text-xl font-bold text-foreground">HealthAI</h1>
-              <p className="text-sm text-muted-foreground">Your AI Health Assistant</p>
-            </div>
-          )}
+          <div>
+            <h1 className="text-xl font-bold text-foreground">HealthAI</h1>
+            <p className="text-sm text-muted-foreground">Your AI Health Assistant</p>
+          </div>
         </div>
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground font-medium mb-4">
-            {!collapsed ? "Main Navigation" : ""}
+            Main Navigation
           </SidebarGroupLabel>
 
           <SidebarGroupContent>

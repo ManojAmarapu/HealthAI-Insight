@@ -10,7 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OnboardingModal, useOnboarding } from "@/components/OnboardingModal";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Chat from "./pages/Chat";
 import Predict from "./pages/Predict";
 import Treatment from "./pages/Treatment";
@@ -48,8 +48,16 @@ function PageTitle() {
   );
 }
 
+const SIZE_OPTIONS = [
+  { label: "Small",   desc: "Compact text",   cls: "text-sm",  preview: "Aa", idx: 0 },
+  { label: "Regular", desc: "Default reading", cls: "text-base",preview: "Aa", idx: 1 },
+  { label: "Large",   desc: "Easy on eyes",   cls: "text-lg", preview: "Aa", idx: 2 },
+];
+
 function FontSizeToggle() {
   const [sizeIdx, setSizeIdx] = useLocalStorage<number>("healthai_font_size", 1);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -57,21 +65,66 @@ function FontSizeToggle() {
     html.classList.add(FONT_SIZES[sizeIdx]);
   }, [sizeIdx]);
 
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
   return (
-    <div className="flex items-center border border-border rounded-lg overflow-hidden" title="Font size">
-      {FONT_SIZES.map((_, i) => (
-        <button
-          key={i}
-          onClick={() => setSizeIdx(i)}
-          className={`px-2 py-1 text-[11px] font-bold transition-colors ${
-            i === sizeIdx
-              ? "bg-primary text-primary-foreground"
-              : "bg-background text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          {FONT_LABELS[i]}
-        </button>
-      ))}
+    <div ref={ref} className="relative">
+      {/* Trigger button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Text size"
+        className={`flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg border transition-all duration-200 ${
+          open ? 'border-primary bg-primary/5' : 'border-border bg-background hover:bg-muted'
+        }`}
+      >
+        <span className="text-sm font-bold leading-none text-foreground">Aa</span>
+        {/* Dots showing current size */}
+        <span className="flex gap-0.5">
+          {SIZE_OPTIONS.map(o => (
+            <span
+              key={o.idx}
+              className={`rounded-full transition-all duration-200 ${
+                o.idx <= sizeIdx ? 'bg-primary w-1.5 h-1.5' : 'bg-muted w-1 h-1'
+              }`}
+            />
+          ))}
+        </span>
+      </button>
+
+      {/* Popover */}
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-xl z-50 p-1.5 animate-in fade-in zoom-in-95 duration-150">
+          <p className="text-[11px] font-medium text-muted-foreground px-2 pt-1 pb-1.5">Text Size</p>
+          {SIZE_OPTIONS.map(opt => (
+            <button
+              key={opt.idx}
+              onClick={() => { setSizeIdx(opt.idx); setOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${
+                sizeIdx === opt.idx
+                  ? 'bg-primary/10 text-primary'
+                  : 'hover:bg-muted text-foreground'
+              }`}
+            >
+              <span className={`font-bold flex-shrink-0 ${opt.cls}`} style={{ lineHeight: 1 }}>Aa</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-xs font-semibold leading-tight">{opt.label}</span>
+                <span className="block text-[10px] text-muted-foreground">{opt.desc}</span>
+              </span>
+              {sizeIdx === opt.idx && (
+                <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
