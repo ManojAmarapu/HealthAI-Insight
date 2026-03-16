@@ -1,18 +1,61 @@
 import { useState, useMemo } from "react";
-import { TrendingUp, Activity, Heart, Brain, BarChart3, AlertTriangle } from "lucide-react";
+import { TrendingUp, Activity, Heart, Brain, BarChart3, AlertTriangle, Target, Trophy } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import { SimpleBarChart, SimpleLineChart, SimplePieChart } from "./SimpleCharts";
 import { useHealthInsights } from "@/hooks/useHealthInsights";
+import { moderateHealthFormInput } from "@/utils/contentModeration";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+
+// D1: Health score arc gauge
+function HealthScoreRing({ score }: { score: number }) {
+  const r = 44, cx = 56, cy = 56, stroke = 8;
+  const circumference = Math.PI * r; // half circle
+  const offset = circumference - (score / 100) * circumference;
+  const color = score >= 70 ? '#10B981' : score >= 45 ? '#F59E0B' : '#EF4444';
+  const label = score >= 70 ? 'Good' : score >= 45 ? 'Fair' : 'Needs Attention';
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg width={cx * 2} height={cy + 20} viewBox={`0 0 ${cx * 2} ${cy + 20}`}>
+        {/* Background arc */}
+        <path d={`M ${stroke / 2} ${cy} A ${r} ${r} 0 0 1 ${cx * 2 - stroke / 2} ${cy}`}
+          fill="none" stroke="currentColor" strokeWidth={stroke} className="text-muted/30"
+          strokeLinecap="round" />
+        {/* Filled arc */}
+        <path d={`M ${stroke / 2} ${cy} A ${r} ${r} 0 0 1 ${cx * 2 - stroke / 2} ${cy}`}
+          fill="none" stroke={color} strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset 1s ease' }}
+        />
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="26" fontWeight="bold" fill={color}>
+          {score}
+        </text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="11" fill="currentColor" className="text-muted-foreground">
+          / 100
+        </text>
+      </svg>
+      <span className="text-xs font-semibold" style={{ color }}>{label}</span>
+      <span className="text-[10px] text-muted-foreground">Health Score</span>
+    </div>
+  );
+}
 
 export function HealthInsights() {
   const [userInput, setUserInput] = useState<string>("");
-  // BUG-18: Track last-run input to disable re-run with identical text
   const [lastQueriedInput, setLastQueriedInput] = useState<string>("");
   const { data: customInsights, loading: isLoading, generateInsights } = useHealthInsights();
+
+  // D2: Goal setting — persisted in localStorage
+  const [savedGoal, setSavedGoal] = useLocalStorage<string>("healthai_health_goal", "");
+  const [goalDone, setGoalDone] = useLocalStorage<boolean>("healthai_goal_done", false);
+  const [goalInput, setGoalInput] = useState("");
   // Sample data for charts
   const commonConditionsData = useMemo(() => [
     { name: 'Common Cold', cases: 45, color: '#3B82F6' },
@@ -100,6 +143,26 @@ export function HealthInsights() {
             <Button
               onClick={() => {
                 // BUG-18: Store the queried input so we can compare on next click
+                const trimmed = userInput.trim();
+                if (!trimmed) return;
+
+                // Moderation: check for inappropriate or gibberish input
+                const mod = moderateHealthFormInput(trimmed);
+                if (mod.status === 'inappropriate') {
+                  toast.error("Inappropriate content", {
+                    description: "Please describe your health goals or concerns. HealthAI is a health assistant.",
+                    duration: 5000,
+                  });
+                  return;
+                }
+                if (mod.status === 'gibberish') {
+                  toast.warning("Please provide a meaningful input", {
+                    description: "Describe your health situation, goals, or concerns clearly (e.g. 'I want to improve my heart health').",
+                    duration: 5000,
+                  });
+                  return;
+                }
+
                 setLastQueriedInput(userInput);
                 generateInsights(userInput);
               }}
@@ -131,6 +194,23 @@ export function HealthInsights() {
 
       {customInsights && (
         <div className="space-y-6">
+          {/* D1: Health Score */}
+          {customInsights.healthScore !== undefined && (
+            <Card className="shadow-soft border-border">
+              <CardContent className="pt-6">
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <HealthScoreRing score={customInsights.healthScore} />
+                  <div className="flex-1 text-center sm:text-left">
+                    <h3 className="font-semibold text-foreground text-lg mb-1">Your Personal Health Score</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Based on your health profile and the insights generated, this score reflects your current wellness relative to your concern.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2 italic">Score is for guidance only — not a medical assessment.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           <Card className="shadow-soft border-border">
             <CardHeader>
               <CardTitle className="text-foreground">Personalized Health Insights</CardTitle>
@@ -317,6 +397,51 @@ export function HealthInsights() {
           </CardContent>
         </Card>
       </div>
+
+      {/* D2: Goal Setting */}
+      <Card className="shadow-soft border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground flex items-center gap-2">
+            <Target className="w-5 h-5 text-primary" />
+            My Health Goal
+          </CardTitle>
+          <CardDescription>Set one health goal and track it here — saved to your device.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {savedGoal ? (
+            <div className={`flex items-center gap-3 p-4 rounded-lg border transition-all ${goalDone ? 'bg-success/5 border-success/20' : 'bg-muted/40 border-border'}`}>
+              <button onClick={() => setGoalDone(!goalDone)} className="flex-shrink-0">
+                {goalDone
+                  ? <Trophy className="w-6 h-6 text-yellow-500" />
+                  : <Target className="w-6 h-6 text-primary" />}
+              </button>
+              <span className={`flex-1 font-medium text-sm ${goalDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                {savedGoal}
+              </span>
+              <Button variant="ghost" size="sm" onClick={() => { setSavedGoal(""); setGoalDone(false); setGoalInput(""); }}
+                className="text-xs text-muted-foreground h-7 px-2">
+                Change
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. Walk 30 minutes every day"
+                value={goalInput}
+                onChange={e => setGoalInput(e.target.value.slice(0, 100))}
+                onKeyDown={e => { if (e.key === 'Enter' && goalInput.trim()) { setSavedGoal(goalInput.trim()); setGoalDone(false); }}}
+              />
+              <Button onClick={() => { if (goalInput.trim()) { setSavedGoal(goalInput.trim()); setGoalDone(false); }}}
+                disabled={!goalInput.trim()} className="shrink-0">
+                Save Goal
+              </Button>
+            </div>
+          )}
+          {goalDone && savedGoal && (
+            <p className="text-xs text-success font-medium">🎉 Congratulations on achieving your goal!</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Monthly Trends */}
       <Card className="shadow-soft border-border">

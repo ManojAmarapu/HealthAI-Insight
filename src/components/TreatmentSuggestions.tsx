@@ -1,22 +1,38 @@
 import { useState, useRef, useEffect } from "react";
-import { Stethoscope, Heart, AlertTriangle, Info, Search, Zap } from "lucide-react";
+import { Stethoscope, Heart, AlertTriangle, Info, Search, Zap, Bookmark, BookmarkCheck, CheckSquare, Square, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import { isGeminiAvailable, getGeminiModel } from "@/services/geminiClient";
+import { moderateHealthFormInput } from "@/utils/contentModeration";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface Treatment {
   category: string;
   steps: string[];
   precautions: string[];
   whenToSeekHelp: string[];
+  recoveryTime?: string;
 }
 
 interface TreatmentData {
   [key: string]: Treatment;
 }
+
+// Static recovery time lookup for common conditions (C2)
+const RECOVERY_TIMES: Record<string, string> = {
+  "common-cold": "7–10 days",
+  "headache": "A few hours to 1 day",
+  "fever": "3–5 days",
+  "stomach-upset": "24–48 hours",
+  "minor-cuts": "5–10 days for skin healing",
+};
+
+const getRecoveryTime = (key: string): string | null =>
+  RECOVERY_TIMES[key] ?? null;
 
 // BUG-12: Constant defined outside the component so it is never recreated on re-renders
 const TREATMENT_DATA: TreatmentData = {
@@ -146,8 +162,40 @@ export function TreatmentSuggestions() {
   const [userInput, setUserInput] = useState<string>("");
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [conditionKey, setConditionKey] = useState<string>("");
   const isMountedRef = useRef(true);
   const geminiActive = isGeminiAvailable();
+
+  // C1: Step completion (keyed by condition input)
+  const [completedSteps, setCompletedSteps] = useLocalStorage<Record<string, boolean[]>>(
+    "healthai_treatment_steps", {}
+  );
+  // C3: Bookmarked treatments
+  const [bookmarks, setBookmarks] = useLocalStorage<string[]>("healthai_treatment_bookmarks", []);
+
+  const stepsKey = conditionKey.trim().toLowerCase().slice(0, 40);
+  const currentStepsDone = completedSteps[stepsKey] ?? [];
+  const toggleStep = (idx: number) => {
+    const steps = selectedTreatment?.steps ?? [];
+    const prev = completedSteps[stepsKey] ?? new Array(steps.length).fill(false);
+    const updated = [...prev];
+    updated[idx] = !updated[idx];
+    setCompletedSteps({ ...completedSteps, [stepsKey]: updated });
+  };
+
+  const isBookmarked = bookmarks.includes(stepsKey);
+  const toggleBookmark = () => {
+    if (isBookmarked) {
+      setBookmarks(bookmarks.filter(b => b !== stepsKey));
+      toast.info("Treatment removed from saved");
+    } else {
+      setBookmarks([...bookmarks, stepsKey]);
+      toast.success("Treatment saved!", { description: "You can find it in your bookmarks." });
+    }
+  };
+
+  const doneCount = currentStepsDone.filter(Boolean).length;
+  const totalSteps = selectedTreatment?.steps.length ?? 0;
 
   useEffect(() => {
     return () => { isMountedRef.current = false; };
@@ -195,13 +243,35 @@ Make all advice SPECIFIC to the described condition. Include a medical disclaime
   };
 
   const generateTreatment = async () => {
-    if (!userInput.trim()) return;
+    const trimmed = userInput.trim();
+    if (!trimmed) return;
+
+    // Moderation check before proceeding
+    const mod = moderateHealthFormInput(trimmed);
+    if (mod.status === 'inappropriate') {
+      toast.error("Inappropriate content", {
+        description: "Please describe a health condition or symptom. HealthAI is a health assistant.",
+        duration: 5000,
+      });
+      return;
+    }
+    if (mod.status === 'gibberish') {
+      toast.warning("Please enter a valid condition", {
+        description: "Type a health condition or symptom (e.g. 'migraine', 'common cold', 'back pain').",
+        duration: 5000,
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       if (geminiActive) {
         const treatment = await fetchTreatmentFromGemini(userInput);
-        if (isMountedRef.current) setSelectedTreatment(treatment);
+        if (isMountedRef.current) {
+          setSelectedTreatment(treatment);
+          setConditionKey(trimmed);
+        }
         return;
       }
       // Rule-based fallback
@@ -210,18 +280,20 @@ Make all advice SPECIFIC to the described condition. Include a medical disclaime
       // Fallback: keyword match against TREATMENT_DATA
       if (!isMountedRef.current) return;
       const input = userInput.toLowerCase();
+      let matchedKey = "";
       let matchedTreatment: Treatment;
       if (input.includes("cold") || input.includes("flu") || input.includes("cough") || input.includes("congestion")) {
-        matchedTreatment = TREATMENT_DATA["common-cold"];
+        matchedKey = "common-cold"; matchedTreatment = TREATMENT_DATA[matchedKey];
       } else if (input.includes("headache") || input.includes("migraine") || input.includes("head pain")) {
-        matchedTreatment = TREATMENT_DATA["headache"];
+        matchedKey = "headache"; matchedTreatment = TREATMENT_DATA[matchedKey];
       } else if (input.includes("fever") || input.includes("temperature") || input.includes("high temp")) {
-        matchedTreatment = TREATMENT_DATA["fever"];
+        matchedKey = "fever"; matchedTreatment = TREATMENT_DATA[matchedKey];
       } else if (input.includes("stomach") || input.includes("nausea") || input.includes("vomit") || input.includes("digestive")) {
-        matchedTreatment = TREATMENT_DATA["stomach-upset"];
+        matchedKey = "stomach-upset"; matchedTreatment = TREATMENT_DATA[matchedKey];
       } else if (input.includes("cut") || input.includes("wound") || input.includes("bleeding") || input.includes("injury")) {
-        matchedTreatment = TREATMENT_DATA["minor-cuts"];
+        matchedKey = "minor-cuts"; matchedTreatment = TREATMENT_DATA[matchedKey];
       } else {
+        matchedKey = trimmed;
         matchedTreatment = {
           category: "General",
           steps: ["Rest and avoid strenuous activities", "Stay hydrated with plenty of water", "Monitor symptoms and note any changes", "Apply ice or heat as appropriate", "Consider over-the-counter medications if needed", "Maintain good hygiene and hand washing"],
@@ -230,6 +302,7 @@ Make all advice SPECIFIC to the described condition. Include a medical disclaime
         };
       }
       setSelectedTreatment(matchedTreatment);
+      setConditionKey(matchedKey || trimmed);
     } finally {
       if (isMountedRef.current) setIsLoading(false);
     }
@@ -292,15 +365,22 @@ Make all advice SPECIFIC to the described condition. Include a medical disclaime
         <Card className="shadow-soft border-border">
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-foreground">
-                Treatment Recommendations
-              </span>
-              <Badge variant="outline" className="border-primary text-primary">
-                {selectedTreatment.category}
-              </Badge>
+              <span className="text-foreground">Treatment Recommendations</span>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-primary text-primary">{selectedTreatment.category}</Badge>
+                <button onClick={toggleBookmark} title={isBookmarked ? "Remove bookmark" : "Save treatment"}
+                  className="text-muted-foreground hover:text-primary transition-colors">
+                  {isBookmarked ? <BookmarkCheck className="w-5 h-5 text-primary" /> : <Bookmark className="w-5 h-5" />}
+                </button>
+              </div>
             </CardTitle>
-            <CardDescription className="break-words">
-              Based on your symptoms: "{userInput}"
+            <CardDescription className="flex flex-wrap items-center gap-3 break-words">
+              <span>Based on: "{userInput}"</span>
+              {getRecoveryTime(conditionKey) && (
+                <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                  <Clock className="w-3 h-3" /> Est. recovery: {getRecoveryTime(conditionKey)}
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -322,19 +402,30 @@ Make all advice SPECIFIC to the described condition. Include a medical disclaime
               <TabsContent value="treatment" className="mt-6">
                 <Card className="border-success/20 bg-success/5">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-success text-lg">
-                      <Heart className="w-5 h-5" />
-                      Recommended Treatment Steps
+                    <CardTitle className="flex items-center justify-between text-success text-lg">
+                      <div className="flex items-center gap-2"><Heart className="w-5 h-5" /> Treatment Steps</div>
+                      {totalSteps > 0 && (
+                        <span className="text-sm font-normal text-muted-foreground">{doneCount}/{totalSteps} done</span>
+                      )}
                     </CardTitle>
+                    {doneCount === totalSteps && totalSteps > 0 && (
+                      <p className="text-sm text-success font-medium">🎉 All steps completed!</p>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <ol className="space-y-3">
                       {selectedTreatment.steps.map((step, index) => (
-                        <li key={index} className="flex items-start gap-3">
-                          <div className="w-6 h-6 bg-success rounded-full flex items-center justify-center text-success-foreground text-sm font-semibold flex-shrink-0 mt-0.5">
-                            {index + 1}
+                        <li key={index}
+                          className={`flex items-start gap-3 cursor-pointer group`}
+                          onClick={() => toggleStep(index)}>
+                          <div className="mt-0.5 flex-shrink-0 text-primary">
+                            {currentStepsDone[index]
+                              ? <CheckSquare className="w-5 h-5" />
+                              : <Square className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />}
                           </div>
-                          <span className="text-foreground text-sm leading-relaxed">{step}</span>
+                          <span className={`text-sm leading-relaxed transition-all ${
+                            currentStepsDone[index] ? 'line-through text-muted-foreground' : 'text-foreground'
+                          }`}>{step}</span>
                         </li>
                       ))}
                     </ol>

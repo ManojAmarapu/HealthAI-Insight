@@ -6,42 +6,50 @@ export interface ChatMessage {
   parts: { text: string }[];
 }
 
+// ─── Simple response cache (sessionStorage) — invalidated when tab closes ─────
+const CACHE_PREFIX = "healthai_cache_";
+const getCached = (key: string): string | null => {
+  try { return sessionStorage.getItem(CACHE_PREFIX + key); } catch { return null; }
+};
+const setCache = (key: string, value: string) => {
+  try { sessionStorage.setItem(CACHE_PREFIX + key, value); } catch {}
+};
+
 // ─── Gemini-powered response (async, with conversation history) ───────────────
 export const generateAIResponseWithGemini = async (
   userMessage: string,
   history: ChatMessage[]
 ): Promise<string> => {
+  // Check cache first (only for solo messages — not mid-conversation)
+  const cacheKey = userMessage.trim().toLowerCase().slice(0, 120);
+  if (history.length === 0) {
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+  }
+
   try {
     const model = getGeminiModel();
-
-    // Build the full conversation: system context + past history + new message
     const contents = [
-      // Inject system instruction as first user turn + model ack
-      {
-        role: "user" as const,
-        parts: [{ text: HEALTH_SYSTEM_INSTRUCTION }],
-      },
-      {
-        role: "model" as const,
-        parts: [{ text: "Got it! I'm HealthAI, your friendly health companion. I'll give you direct, helpful answers first — no unnecessary deflecting. What can I help you with today?" }],
-      },
-      // Previous conversation turns
+      { role: "user" as const, parts: [{ text: HEALTH_SYSTEM_INSTRUCTION }] },
+      { role: "model" as const, parts: [{ text: "Got it! I'm HealthAI, your friendly health companion. I'll give you direct, helpful answers first — no unnecessary deflecting. What can I help you with today?" }] },
       ...history,
-      // New user message
-      {
-        role: "user" as const,
-        parts: [{ text: userMessage }],
-      },
+      { role: "user" as const, parts: [{ text: userMessage }] },
     ];
 
     const result = await model.generateContent({ contents });
     const text = result.response.text().trim();
-    return text || generateAIResponse(userMessage);
+    const response = text || generateAIResponse(userMessage);
+
+    // Cache single-message responses
+    if (history.length === 0 && response) setCache(cacheKey, response);
+
+    return response;
   } catch (err) {
     console.error("[HealthAI] Gemini chat error, using fallback:", err);
     return generateAIResponse(userMessage);
   }
 };
+
 
 // ─── Rule-based fallback (synchronous — always available) ────────────────────
 export const generateAIResponse = (userMessage: string): string => {

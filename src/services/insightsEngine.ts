@@ -6,6 +6,7 @@ export interface HealthInsightsData {
   riskFactors: string[];
   preventiveMeasures: string[];
   lifestyle: string[];
+  healthScore?: number; // 0-100 personal health score (D1)
   isGeneric?: boolean;
 }
 
@@ -20,6 +21,7 @@ The user has described their health concern or goal as: "${userInput}"
 Return ONLY a valid JSON object (no markdown, no extra text) in this exact format:
 {
   "userQuery": "${userInput}",
+  "healthScore": 72,
   "recommendations": [
     "Specific recommendation 1",
     "Specific recommendation 2",
@@ -49,6 +51,7 @@ Return ONLY a valid JSON object (no markdown, no extra text) in this exact forma
 }
 
 Rules:
+- healthScore: integer 0-100 estimating overall health relevance/severity for this concern (higher = healthier)
 - Make all advice SPECIFIC to the user's concern: "${userInput}"
 - Be practical, evidence-based, and actionable
 - Keep each item concise (max 1 sentence)
@@ -74,7 +77,7 @@ export const generateCustomInsights = (userInput: string): HealthInsightsData =>
 
   if (input.includes("heart") || input.includes("cardiac") || input.includes("chest")) {
     return {
-      userQuery: userInput,
+      userQuery: userInput, healthScore: 62,
       recommendations: ["Monitor blood pressure regularly", "Maintain a heart-healthy diet low in sodium", "Exercise for 30 minutes daily", "Limit alcohol consumption", "Quit smoking if applicable"],
       riskFactors: ["High cholesterol", "High blood pressure", "Sedentary lifestyle", "Smoking", "Family history"],
       preventiveMeasures: ["Regular cardiovascular checkups", "Stress management techniques", "Mediterranean diet", "Adequate sleep (7-9 hours)"],
@@ -83,7 +86,7 @@ export const generateCustomInsights = (userInput: string): HealthInsightsData =>
   }
   if (input.includes("diabetes") || input.includes("blood sugar") || input.includes("glucose") || input.includes("insulin")) {
     return {
-      userQuery: userInput,
+      userQuery: userInput, healthScore: 58,
       recommendations: ["Monitor blood glucose levels regularly", "Follow a balanced, low-carb diet", "Exercise regularly to improve insulin sensitivity", "Take medications as prescribed", "Maintain a healthy weight"],
       riskFactors: ["Obesity", "Family history of diabetes", "Sedentary lifestyle", "High blood pressure", "Age over 45"],
       preventiveMeasures: ["Regular HbA1c testing", "Annual eye exams", "Foot care routine", "Blood pressure monitoring"],
@@ -92,7 +95,7 @@ export const generateCustomInsights = (userInput: string): HealthInsightsData =>
   }
   if (input.includes("sleep") || input.includes("insomnia") || input.includes("fatigue") || input.includes("tired")) {
     return {
-      userQuery: userInput,
+      userQuery: userInput, healthScore: 65,
       recommendations: ["Maintain a consistent sleep schedule", "Create a relaxing bedtime routine", "Limit caffeine after 2 PM", "Avoid screens 1 hour before bed", "Keep bedroom cool, dark, and quiet"],
       riskFactors: ["Irregular sleep schedule", "High stress or anxiety", "Excessive caffeine or alcohol", "Screen time before bed", "Underlying sleep disorders"],
       preventiveMeasures: ["Sleep hygiene education", "CBT-I therapy if needed", "Regular physical activity", "Stress management practices"],
@@ -101,16 +104,16 @@ export const generateCustomInsights = (userInput: string): HealthInsightsData =>
   }
   if (input.includes("weight") || input.includes("obesity") || input.includes("diet") || input.includes("nutrition")) {
     return {
-      userQuery: userInput,
+      userQuery: userInput, healthScore: 60,
       recommendations: ["Aim for gradual weight loss (0.5–1 kg per week)", "Increase vegetables and fibre-rich foods", "Reduce ultra-processed food and sugary drinks", "Practice mindful eating", "Consult a registered dietitian"],
       riskFactors: ["High-calorie, low-nutrient diet", "Sedentary lifestyle", "Hormonal imbalances", "Emotional eating", "Genetic factors"],
-      preventiveMeasures: ["Regular health weight-ins", "Tracking food intake", "Annual metabolic panel tests", "Setting realistic, sustainable goals"],
+      preventiveMeasures: ["Regular health weigh-ins", "Tracking food intake", "Annual metabolic panel tests", "Setting realistic, sustainable goals"],
       lifestyle: ["Cook more meals at home", "Choose stairs over lifts", "Eat slowly and without distractions", "Plan meals ahead"],
     };
   }
   if (input.includes("mental") || input.includes("anxiety") || input.includes("stress") || input.includes("depression") || input.includes("mood")) {
     return {
-      userQuery: userInput,
+      userQuery: userInput, healthScore: 55,
       recommendations: ["Speak with a licensed mental health professional", "Practice mindfulness or meditation daily", "Maintain social connections", "Establish a consistent daily routine", "Limit news and social media"],
       riskFactors: ["Chronic stress", "Social isolation", "Poor sleep", "Lack of physical activity", "Unhealthy coping mechanisms"],
       preventiveMeasures: ["Regular therapy or counselling", "Stress-reduction techniques", "Annual mental health check-ins", "Building a support network"],
@@ -119,8 +122,8 @@ export const generateCustomInsights = (userInput: string): HealthInsightsData =>
   }
 
   return {
-    // BUG-10: Display the specific topic back to the user to acknowledge we read it
     userQuery: `General wellness insights for: ${userInput}`,
+    healthScore: 72,
     isGeneric: true,
     recommendations: ["Maintain a balanced diet with fruits and vegetables", "Exercise regularly for overall fitness", "Get adequate sleep (7-9 hours nightly)", "Stay hydrated throughout the day", "Schedule regular health checkups"],
     riskFactors: ["Sedentary lifestyle", "Poor diet habits", "Chronic stress", "Lack of sleep", "Smoking or excessive alcohol"],

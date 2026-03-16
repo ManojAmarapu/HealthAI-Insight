@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, AlertCircle, CheckCircle, X, Zap, RotateCcw } from "lucide-react";
+import { Search, AlertCircle, CheckCircle, X, Zap, RotateCcw, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,9 +7,59 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 import { analyzeSymptomsAI, PredictionResult } from "@/services/symptomEngine";
 import { severityStyles } from "@/constants/severityLevels";
 import { isGeminiAvailable } from "@/services/geminiClient";
+import { moderateInput } from "@/utils/contentModeration";
+
+// ── Confidence arc gauge ──────────────────────────────────────────
+function ConfidenceRing({ value }: { value: number }) {
+  const r = 28, cx = 36, cy = 36, stroke = 6;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference - (value / 100) * circumference;
+  const color = value >= 75 ? '#10B981' : value >= 50 ? '#F59E0B' : '#EF4444';
+  return (
+    <div className="flex flex-col items-center">
+      <svg width={cx * 2} height={cy * 2}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor"
+          strokeWidth={stroke} className="text-muted/30" />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color}
+          strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform={`rotate(-90 ${cx} ${cy})`}
+          style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+        />
+        <text x={cx} y={cy + 5} textAnchor="middle" fontSize="13" fontWeight="bold" fill={color}>
+          {value}%
+        </text>
+      </svg>
+      <span className="text-[10px] text-muted-foreground">confidence</span>
+    </div>
+  );
+}
+
+// ── Condition prevalence lookup ───────────────────────────────────
+const PREVALENCE: Record<string, string> = {
+  'Common Cold': 'Very common — ~1 billion cases per year worldwide',
+  'Influenza': 'Common — affects ~10% of the global population annually',
+  'Migraine': 'Common — affects ~15% of people worldwide',
+  'Hypertension': 'Very common — affects 1 in 3 adults globally',
+  'Diabetes': 'Common — 422 million people have it worldwide',
+  'Anxiety Disorder': 'Common — affects ~284 million people worldwide',
+  'Gastroenteritis': 'Very common — billions of cases per year',
+  'Allergic Rhinitis': 'Common — affects ~400 million people globally',
+  'Asthma': 'Common — affects ~262 million people worldwide',
+  'COVID-19': 'Highly variable — depends on current local outbreak',
+};
+const getPrevalence = (disease: string): string | null => {
+  const key = Object.keys(PREVALENCE).find(k =>
+    disease.toLowerCase().includes(k.toLowerCase()) ||
+    k.toLowerCase().includes(disease.toLowerCase().split(' ')[0])
+  );
+  return key ? PREVALENCE[key] : null;
+};
 
 export function DiseasePredictionForm() {
   const [formData, setFormData] = useState({
@@ -55,8 +105,28 @@ export function DiseasePredictionForm() {
   };
   const handlePredict = async () => {
     const ageNum = parseInt(formData.age);
-    if (!formData.age || isNaN(ageNum) || ageNum < 0 || ageNum > 120) return;
-    if (!formData.gender || formData.symptoms.length === 0) return;
+    if (!formData.age || isNaN(ageNum) || ageNum < 0 || ageNum > 120) {
+      toast.warning("Please provide a valid age", { description: "Enter a number between 0 and 120." });
+      return;
+    }
+    if (!formData.gender) {
+      toast.warning("Please select a gender", { description: "Gender is required for accurate predictions." });
+      return;
+    }
+    if (formData.symptoms.length === 0) {
+      toast.warning("Please select at least one symptom", { description: "Select the symptoms you are experiencing to get a prediction." });
+      return;
+    }
+
+    // Check for inappropriate content in any free text (duration/severity)
+    const allText = [formData.duration, formData.severity].filter(Boolean).join(' ');
+    if (allText && moderateInput(allText).status === 'inappropriate') {
+      toast.error("Inappropriate content detected", {
+        description: "HealthAI can only assist with health-related information.",
+        duration: 5000,
+      });
+      return;
+    }
 
     // BUG-08: Clear the old prediction immediately when starting a new one
     setPrediction(null);
@@ -249,17 +319,22 @@ export function DiseasePredictionForm() {
               Prediction Results
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-start gap-2">
-              <h3 className="text-lg font-semibold text-foreground">{prediction.disease}</h3>
-              <div className="flex items-center gap-2">
-                <Badge className={severityStyles[prediction.severity]}>
-                  {prediction.severity.toUpperCase()}
-                </Badge>
-                <Badge variant="outline" className="border-primary text-primary">
-                  {prediction.probability}% confidence
-                </Badge>
+          <CardContent className="space-y-4" id="prediction-result">
+            <div className="flex flex-wrap items-start gap-4">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground">{prediction.disease}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge className={severityStyles[prediction.severity]}>
+                    {prediction.severity.toUpperCase()}
+                  </Badge>
+                </div>
+                {getPrevalence(prediction.disease) && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    📊 {getPrevalence(prediction.disease)}
+                  </p>
+                )}
               </div>
+              <ConfidenceRing value={prediction.probability} />
             </div>
 
             <div className="p-4 bg-muted/50 rounded-lg border border-border">
@@ -287,15 +362,22 @@ export function DiseasePredictionForm() {
               </div>
             )}
 
-            {/* UX-05: New Prediction reset button */}
-            <div className="pt-2 border-t border-border">
+            {/* Print & Reset actions */}
+            <div className="pt-2 border-t border-border flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => window.print()}
+                className="flex-1 gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <Printer className="w-4 h-4" /> Save / Print
+              </Button>
               <Button
                 variant="outline"
                 onClick={handleReset}
-                className="w-full gap-2 text-muted-foreground hover:text-foreground"
+                className="flex-1 gap-2 text-muted-foreground hover:text-foreground"
               >
                 <RotateCcw className="w-4 h-4" />
-                Start New Prediction
+                New Prediction
               </Button>
             </div>
           </CardContent>
