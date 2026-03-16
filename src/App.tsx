@@ -11,6 +11,7 @@ import { OnboardingModal, useOnboarding } from "@/components/OnboardingModal";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useEffect, useState, useRef } from "react";
+import { ALargeSmall } from "lucide-react";
 import Chat from "./pages/Chat";
 import Predict from "./pages/Predict";
 import Treatment from "./pages/Treatment";
@@ -85,7 +86,7 @@ function FontSizeToggle() {
           open ? 'border-primary bg-primary/5' : 'border-border bg-background hover:bg-muted'
         }`}
       >
-        <span className="text-sm font-bold leading-none text-foreground">Aa</span>
+        <ALargeSmall className={`w-4 h-4 transition-colors ${open ? 'text-primary' : 'text-foreground'}`} />
         {/* Dots showing current size */}
         <span className="flex gap-0.5">
           {SIZE_OPTIONS.map(o => (
