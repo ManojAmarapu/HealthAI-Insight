@@ -32,6 +32,18 @@ const PAGE_TITLES: Record<string, string> = {
 const FONT_SIZES = ["text-sm", "text-base", "text-lg"] as const;
 const FONT_LABELS = ["A-", "A", "A+"] as const;
 
+// Scroll to top on every route change
+function ScrollToTop() {
+  const location = useLocation();
+  useEffect(() => {
+    // The main content area has overflow-auto, find and reset it
+    const main = document.querySelector("main");
+    if (main) main.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+  return null;
+}
+
 function PageTitle() {
   const location = useLocation();
   const title = PAGE_TITLES[location.pathname] ?? "HealthAI";
@@ -161,6 +173,7 @@ function AppLayout() {
 
           {/* Main Content */}
           <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto pb-20 sm:pb-6">
+            <ScrollToTop />
             <Routes>
               <Route path="/" element={<Chat />} />
               <Route path="/predict" element={<Predict />} />
