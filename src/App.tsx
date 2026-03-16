@@ -8,7 +8,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OnboardingModal, useOnboarding } from "@/components/OnboardingModal";
-import { WelcomeNameModal } from "@/components/WelcomeNameModal";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useEffect, useState } from "react";
@@ -36,8 +35,14 @@ const FONT_LABELS = ["A-", "A", "A+"] as const;
 function PageTitle() {
   const location = useLocation();
   const title = PAGE_TITLES[location.pathname] ?? "HealthAI";
+
+  // Update browser tab title
+  useEffect(() => {
+    document.title = `${title} | HealthAI Insight`;
+  }, [title]);
+
   return (
-    <span className="text-sm font-semibold text-foreground hidden sm:inline-block">
+    <span className="text-sm font-semibold text-foreground truncate max-w-[140px] sm:max-w-none">
       {title}
     </span>
   );
@@ -52,47 +57,41 @@ function FontSizeToggle() {
     html.classList.add(FONT_SIZES[sizeIdx]);
   }, [sizeIdx]);
 
-  const cycle = () => setSizeIdx(prev => (prev + 1) % FONT_SIZES.length);
-
   return (
-    <button
-      onClick={cycle}
-      className="px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs font-bold text-foreground"
-      title="Toggle font size"
-    >
-      {FONT_LABELS[sizeIdx]}
-    </button>
+    <div className="flex items-center border border-border rounded-lg overflow-hidden" title="Font size">
+      {FONT_SIZES.map((_, i) => (
+        <button
+          key={i}
+          onClick={() => setSizeIdx(i)}
+          className={`px-2 py-1 text-[11px] font-bold transition-colors ${
+            i === sizeIdx
+              ? "bg-primary text-primary-foreground"
+              : "bg-background text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          {FONT_LABELS[i]}
+        </button>
+      ))}
+    </div>
   );
 }
 
 function AppLayout() {
   const { shouldShow: showOnboarding, complete: completeOnboarding } = useOnboarding();
-  const [userName] = useLocalStorage<string>("healthai_user_name", "");
-  const [sawNameModal, setSawNameModal] = useLocalStorage<boolean>("healthai_name_modal_seen", false);
-  const [showNameModal, setShowNameModal] = useState(false);
-
-  // Show name modal after onboarding (if user hasn't provided name yet)
-  useEffect(() => {
-    if (!showOnboarding && !sawNameModal && !userName) {
-      const t = setTimeout(() => setShowNameModal(true), 400);
-      return () => clearTimeout(t);
-    }
-  }, [showOnboarding, sawNameModal, userName]);
-
-  const handleNameComplete = () => {
-    setSawNameModal(true);
-    setShowNameModal(false);
-  };
 
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar />
+        {/* Sidebar hidden on mobile — bottom nav handles navigation there */}
+        <div className="hidden sm:block">
+          <AppSidebar />
+        </div>
         <div className="flex flex-col flex-1">
           {/* Header */}
           <header className="h-16 flex items-center justify-between px-3 sm:px-6 border-b bg-card shadow-soft sticky top-0 z-30">
             <div className="flex items-center gap-3">
-              <SidebarTrigger className="p-2 hover:bg-muted rounded-lg transition-smooth" />
+              {/* Hide hamburger on mobile — bottom nav replaces sidebar there */}
+              <SidebarTrigger className="hidden sm:flex p-2 hover:bg-muted rounded-lg transition-smooth" />
               <PageTitle />
             </div>
             <div className="flex items-center gap-2">
@@ -133,7 +132,6 @@ function AppLayout() {
 
       {/* Modals */}
       {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
-      {showNameModal && !showOnboarding && <WelcomeNameModal onComplete={handleNameComplete} />}
     </SidebarProvider>
   );
 }

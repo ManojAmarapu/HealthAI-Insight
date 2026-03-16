@@ -37,6 +37,13 @@ export const generateAIResponseWithGemini = async (
     ];
 
     const result = await model.generateContent({ contents });
+
+    // Handle safety-blocked response
+    const candidate = result.response.candidates?.[0];
+    if (candidate?.finishReason === 'SAFETY') {
+      return "I'm not able to respond to that specific request. Please ask your health question in a different way, and I'll do my best to help.";
+    }
+
     const text = result.response.text().trim();
     const response = text || generateAIResponse(userMessage);
 
@@ -44,7 +51,16 @@ export const generateAIResponseWithGemini = async (
     if (history.length === 0 && response) setCache(cacheKey, response);
 
     return response;
-  } catch (err) {
+  } catch (err: unknown) {
+    const errMsg = String(err);
+    // Quota / rate limit — tell user rather than silent fallback
+    if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('rate')) {
+      return "⚠️ HealthAI's Gemini connection is temporarily at capacity. Using built-in knowledge instead...\n\n" + generateAIResponse(userMessage);
+    }
+    // Network error
+    if (errMsg.includes('network') || errMsg.includes('fetch') || errMsg.includes('ENOTFOUND')) {
+      return "⚠️ Can't reach the AI server right now. Using local knowledge instead...\n\n" + generateAIResponse(userMessage);
+    }
     console.error("[HealthAI] Gemini chat error, using fallback:", err);
     return generateAIResponse(userMessage);
   }

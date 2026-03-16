@@ -210,6 +210,7 @@ The user describes: "${query}"
 Return ONLY a valid JSON object (no markdown, no extra text) in this exact format:
 {
   "category": "<Medical category e.g. Respiratory/Neurological/Gastrointestinal/General/First Aid>",
+  "recoveryTime": "<Estimated recovery time e.g. '7-10 days' or '24-48 hours'>",
   "steps": [
     "Step 1",
     "Step 2",
@@ -233,13 +234,21 @@ Return ONLY a valid JSON object (no markdown, no extra text) in this exact forma
   ]
 }
 
-Make all advice SPECIFIC to the described condition. Include a medical disclaimer as the last step.`;
+Rules:
+- recoveryTime: realistic estimate (use ranges like '5-7 days' not 'varies')
+- Make all advice SPECIFIC to the described condition
+- Include a medical disclaimer as the last step`;
 
     const model = getGeminiModel();
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
     const jsonText = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    return JSON.parse(jsonText) as Treatment;
+    try {
+      return JSON.parse(jsonText) as Treatment;
+    } catch {
+      // If Gemini returns unparseable JSON, throw so the caller falls back
+      throw new Error("Invalid JSON from Gemini");
+    }
   };
 
   const generateTreatment = async () => {

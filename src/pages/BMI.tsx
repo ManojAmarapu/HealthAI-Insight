@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { Calculator, RotateCcw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calculator, RotateCcw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { isGeminiAvailable, getGeminiModel } from "@/services/geminiClient";
 
 interface BMIResult {
   bmi: number;
@@ -43,6 +44,22 @@ function calculateBMI(weight: number, height: number, isMetric: boolean): BMIRes
   };
 }
 
+// ── Gemini personalized BMI tips ──────────────────────────────────
+async function fetchGeminiTips(bmi: number, category: string, unit: string): Promise<string[]> {
+  const prompt = `A user has a BMI of ${bmi} (${unit} units), which puts them in the "${category}" category.
+Give exactly 4 personalized, actionable health tips for someone in this BMI category.
+Return ONLY a JSON array of 4 strings, no markdown, no extra text.
+Example: ["Tip 1", "Tip 2", "Tip 3", "Tip 4"]`;
+  try {
+    const model = getGeminiModel();
+    const result = await model.generateContent(prompt);
+    const raw = result.response.text().trim().replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const tips = JSON.parse(raw) as string[];
+    if (Array.isArray(tips) && tips.length > 0) return tips;
+  } catch { /* fall through to static tips */ }
+  return [];
+}
+
 function BMIGauge({ bmi }: { bmi: number }) {
   const clampedBMI = Math.min(Math.max(bmi, 10), 45);
   const percent = ((clampedBMI - 10) / 35) * 100;
@@ -79,6 +96,19 @@ const BMI = () => {
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState("");
   const [result, setResult] = useState<BMIResult | null>(null);
+  const [aiTips, setAiTips] = useState<string[]>([]);
+  const [tipsLoading, setTipsLoading] = useState(false);
+  const geminiOn = isGeminiAvailable();
+
+  // Fetch Gemini tips when result changes
+  useEffect(() => {
+    if (!result || !geminiOn) return;
+    setTipsLoading(true);
+    setAiTips([]);
+    fetchGeminiTips(result.bmi, result.category, isMetric ? "metric" : "imperial")
+      .then(tips => { if (tips.length > 0) setAiTips(tips); })
+      .finally(() => setTipsLoading(false));
+  }, [result]);
 
   const handleCalculate = () => {
     const w = parseFloat(weight), h = parseFloat(height);
@@ -159,9 +189,13 @@ const BMI = () => {
             <BMIGauge bmi={result.bmi} />
 
             <div>
-              <h4 className="font-semibold text-foreground mb-3">💡 Personalized Tips</h4>
+              <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                {geminiOn ? <Zap className="w-4 h-4 text-primary" /> : "💡"}
+                {geminiOn ? "AI Personalized Tips" : "Personalized Tips"}
+                {tipsLoading && <span className="text-xs text-muted-foreground font-normal">(Generating...)</span>}
+              </h4>
               <ul className="space-y-2">
-                {result.tips.map((tip, i) => (
+                {(aiTips.length > 0 ? aiTips : result.tips).map((tip, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
                     <span className="text-foreground">{tip}</span>
