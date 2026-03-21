@@ -2,11 +2,11 @@ import { NavLink } from "react-router-dom";
 import { MessageCircle, Search, Stethoscope, TrendingUp, Calculator } from "lucide-react";
 
 const NAV_ITEMS = [
-  { title: "Chat",      url: "/",          icon: MessageCircle, gradient: "from-blue-500 to-cyan-400"   },
-  { title: "Predict",   url: "/predict",   icon: Search,        gradient: "from-emerald-500 to-green-400" },
-  { title: "Treatment", url: "/treatment", icon: Stethoscope,   gradient: "from-purple-500 to-violet-400" },
-  { title: "Insights",  url: "/insights",  icon: TrendingUp,    gradient: "from-orange-500 to-amber-400"  },
-  { title: "BMI",       url: "/bmi",       icon: Calculator,    gradient: "from-rose-500 to-pink-400"    },
+  { title: "Chat",      url: "/",          icon: MessageCircle },
+  { title: "Predict",   url: "/predict",   icon: Search        },
+  { title: "Treatment", url: "/treatment", icon: Stethoscope   },
+  { title: "Insights",  url: "/insights",  icon: TrendingUp    },
+  { title: "BMI",       url: "/bmi",       icon: Calculator    },
 ];
 
 export function MobileBottomNav() {
@@ -14,11 +14,10 @@ export function MobileBottomNav() {
     <nav
       className="sm:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch"
       style={{
-        background: "rgba(var(--card) / 0.85)",
-        backdropFilter: "blur(20px) saturate(180%)",
-        WebkitBackdropFilter: "blur(20px) saturate(180%)",
-        borderTop: "1px solid rgba(var(--border) / 0.6)",
-        boxShadow: "0 -8px 32px rgba(0,0,0,0.12)",
+        // --muted gives a subtly different tone vs page background in both light and dark mode
+        background: "hsl(var(--muted))",
+        borderTop: "1px solid hsl(var(--border) / 0.8)",
+        boxShadow: "0 -2px 12px rgba(0,0,0,0.07)",
       }}
     >
       {NAV_ITEMS.map((item) => {
@@ -32,33 +31,34 @@ export function MobileBottomNav() {
           >
             {({ isActive }) => (
               <>
-                {/* Active pill background */}
+                {/* Subtle top indicator using app's primary color */}
                 {isActive && (
-                  <span className={`absolute inset-x-2 inset-y-1.5 rounded-xl bg-gradient-to-b ${item.gradient} opacity-10 pointer-events-none`} />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-b-full bg-primary opacity-70" />
                 )}
 
-                {/* Top indicator line */}
-                {isActive && (
-                  <span className={`absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-gradient-to-r ${item.gradient}`} />
-                )}
-
-                {/* Icon */}
+                {/* Icon — primary tint when active, muted when not */}
                 <span
-                  className={`relative flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 ${
-                    isActive ? `bg-gradient-to-br ${item.gradient} shadow-sm scale-110` : "scale-100"
+                  className={`relative flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200 ${
+                    isActive
+                      ? "bg-primary/10 scale-105"
+                      : "scale-100"
                   }`}
                 >
                   <Icon
                     className={`w-4 h-4 transition-colors ${
-                      isActive ? "text-white" : "text-muted-foreground group-hover:text-foreground"
+                      isActive
+                        ? "text-primary"
+                        : "text-muted-foreground group-hover:text-foreground"
                     }`}
                   />
                 </span>
 
                 {/* Label */}
                 <span
-                  className={`text-[10px] font-semibold transition-colors ${
-                    isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+                  className={`text-[10px] font-medium transition-colors ${
+                    isActive
+                      ? "text-primary font-semibold"
+                      : "text-muted-foreground group-hover:text-foreground"
                   }`}
                 >
                   {item.title}
